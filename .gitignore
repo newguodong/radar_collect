@@ -153,6 +153,9 @@ dmypy.json
 cython_debug/
 
 *.code-workspace
+mysocketmonitor.txt
+mylogfiles/
+radardata.bin
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
