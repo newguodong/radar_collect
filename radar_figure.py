@@ -14,6 +14,10 @@ import struct
 
 import json
 
+import tkinter as tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+
 
 class radar_sheet():
     def __init__(self, radar_normal_angel, radar_theta, radar_distance, sortnum) -> None:
@@ -25,6 +29,10 @@ class radar_sheet():
         self.theta = np.pi*radar_normal_angel/180
         self.width = np.pi*radar_theta/180
         self.colors = plt.cm.viridis(radar_distance / 10.)
+
+        # 创建 tkinter 窗口
+        root = tk.Tk()
+        root.title("Matplotlib in Tkinter")
 
         self.fig = plt.figure()
 
@@ -48,6 +56,11 @@ class radar_sheet():
         plt.thetagrids([i*180/np.pi for i in a],b)
 
         self.ax_radar.grid(False,color='black',linestyle=':',linewidth=0.5)
+
+        # 将 matplotlib 图形嵌入到 tkinter 窗口中
+        canvas = FigureCanvasTkAgg(self.fig, master=root)   
+        canvas.draw()
+        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         pass
 
@@ -573,6 +586,7 @@ if __name__ == '__main__':
     #     #     print("no data")
     #     time.sleep(1)
 
-    plt.show()
+    # plt.show()
+    tk.mainloop()
 
     os._exit(0)
