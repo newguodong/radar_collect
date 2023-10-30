@@ -12,6 +12,8 @@ import os
 import gc
 import struct
 
+import json
+
 
 class radar_sheet():
     def __init__(self, radar_normal_angel, radar_theta, radar_distance, sortnum) -> None:
@@ -132,7 +134,7 @@ class DynamicPlotThread(Thread):
                         modify_mark = 1
                     
                     if new_mark:
-                        print("new_mark")
+                        # print("new_mark")
                         jobject = iobject
                         jobject["shot_id"] = iobject["id"]
                         jobject["shot status"] = 1
@@ -140,7 +142,7 @@ class DynamicPlotThread(Thread):
                         jobject["shot shot"] = radar_shot(self.ax, jobject["polar_theta"], jobject["polar_r"])
                         self.shots.append(jobject)
                     elif modify_mark:
-                        print("modify_mark")
+                        # print("modify_mark")
 
                         # print(f"ishot_index={ishot_index}")
                         self.shots[ishot_index]["id"] = iobject["id"]
@@ -163,56 +165,12 @@ class DynamicPlotThread(Thread):
                     jobject["shot time"] = 0
                     jobject["shot shot"] = radar_shot(self.ax, jobject["polar_theta"], jobject["polar_r"])
                     self.shots.append(jobject)
-
-
-            # for iobject in self.objects:
-            #     shot_counter = 0
-            #     ishot_index = 0
-            #     for ishot in self.shots:
-            #         if ishot["shot_id"] != iobject["id"]:
-            #             shot_counter += 1
-            #         else:
-            #             ishot_index = self.shots.index(ishot)
-
-            #     if shot_counter == 0:
-            #         print("shot_counter==0, creat new shot")
-            #         jobject = iobject
-            #         jobject["shot_id"] = iobject["id"]
-            #         jobject["shot status"] = 1
-            #         jobject["shot time"] = 0
-            #         jobject["shot shot"] = radar_shot(self.ax, jobject["polar_theta"], jobject["polar_r"])
-            #         self.shots.append(jobject)
-                    
-            #     elif shot_counter >= len(self.shots):
-            #         print("shot_counter >= len(self.shots), creat new shot")
-            #         jobject = iobject
-            #         jobject["shot_id"] = iobject["id"]
-            #         jobject["shot status"] = 1
-            #         jobject["shot time"] = 0
-            #         jobject["shot shot"] = radar_shot(self.ax, jobject["polar_theta"], jobject["polar_r"])
-            #         self.shots.append(jobject)
-            #     else:
-            #         print("modify shot")
-
-            #         # print(f"ishot_index={ishot_index}")
-            #         self.shots[ishot_index]["id"] = iobject["id"]
-            #         self.shots[ishot_index]["polar_theta"] = iobject["polar_theta"]
-            #         self.shots[ishot_index]["polar_r"] = iobject["polar_r"]
-            #         self.shots[ishot_index]["rect_x"] = iobject["rect_x"]
-            #         self.shots[ishot_index]["rect_y"] = iobject["rect_y"]
-            #         self.shots[ishot_index]["speed"] = iobject["speed"]
-            #         self.shots[ishot_index]["dis_reso"] = iobject["dis_reso"]
-
-            #         self.shots[ishot_index]["shot status"] = 1
-            #         self.shots[ishot_index]["shot time"] = 0
-
-            #         self.shots[ishot_index]["shot shot"].newlocation(self.shots[ishot_index]["polar_theta"], self.shots[ishot_index]["polar_r"])
-            #     # print(f"self.shots = {self.shots}")
             
             self.objects.clear()
             for ishot in self.shots:
                 if ishot["shot time"]<1:
                     print(ishot)
+            print("")
             self.fig.canvas.draw()
             time.sleep(0.5)
             for ishot in self.shots:
@@ -515,7 +473,7 @@ def radar_computer_ld2450(data_in):
     radar_objects_data.append(data_in["data"][4+8:4+8+8])
     radar_objects_data.append(data_in["data"][4+8+8:4+8+8+8])
 
-    radar_objects = []    
+    radar_objects = []
 
     for radar_object in radar_objects_data:
         if sum(radar_object[0:4]) > 0:
@@ -523,6 +481,8 @@ def radar_computer_ld2450(data_in):
             radar_object_dict["radar_model"] = "ld2450"
             radar_object_dict["id"] = radar_objects_data.index(radar_object)
             radar_object_dict["rect_x"] = radar_object[0]+radar_object[1]*256
+            if radar_object[1]&int('10000000', 2):
+                radar_object_dict["rect_x"] -= 0x8000
             radar_object_dict["rect_y"] = radar_object[2]+radar_object[3]*256-2**15
             radar_object_dict["speed"] = radar_object[4]+radar_object[5]*256
             radar_object_dict["dis_reso"] = radar_object[6]+radar_object[7]*256
@@ -537,8 +497,33 @@ def radar_computer_ld2450(data_in):
 
 
 def radar_data_analyse(data_in, data_out):
+    if os.path.exists('data')==False:
+        os.mkdir('data')
+    if os.path.exists('data/radardata')==False:
+        os.mkdir('data/radardata')
     while(True):
         if len(data_in) > 0:
+            # print(f"len(data_in)={len(data_in)}")
+            radar_data_json = []
+            try:
+                with open('data/radardata/radar_data.json', 'r') as f:
+                    radar_data_json = json.load(f)
+            except:
+                print("ignore")
+
+            objects_data_item = {}
+            for idata_in in data_in:
+                radar_data_list = radar_computer_ld2450(idata_in)
+                # print(f"radar_data_list={radar_data_list}")
+                localtime = time.localtime()
+                localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
+                objects_data_item["time"]=localtimestr
+                objects_data_item["data"]=radar_data_list
+                radar_data_json.append(objects_data_item)
+            
+            with open('data/radardata/radar_data.json', 'w') as f:
+                json.dump(radar_data_json, f, indent=4)
+            
             data_in_1 = data_in.pop()
             if len(data_in_1["data"]) > 0:
                 # print(f"data_in_1={data_in_1['data']}")
