@@ -19,8 +19,36 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
 
+button_msg_list = {"exit":False, "json record":False}
+button_dict = {}
+
+
+def exit_button_callback():
+    button_msg_list["exit"] = True
+    time.sleep(2)
+    os._exit(0)
+
+def json_record_button_callback():
+    if button_msg_list["json record"] == True:
+        button_msg_list["json record"] = False
+        button_dict["json record switch"]["text"] = "json record off"
+    else:
+        button_msg_list["json record"] = True
+        button_dict["json record switch"]["text"] = "json record on"
+
+class tk_button():
+    def __init__(self, window, name, text, width, height, callback, b_x=0, b_y=0, b_anchor='s') -> None:
+        self.window = window
+        
+        button = tk.Button(window,width=width, height=height, text=text, padx=1, pady=1, anchor='center', command = callback)
+        button.place(x = b_x, y = b_y)
+        button_dict[name] = button
+        
+    
+
 class radar_sheet():
-    def __init__(self, radar_normal_angel, radar_theta, radar_distance, sortnum) -> None:
+    def __init__(self, radar_tk_window, radar_normal_angel, radar_theta, radar_distance, sortnum) -> None:
+        self.tk_window = radar_tk_window
         self.radar_normal_angel = 90
         self.radar_theta = 120
         self.radar_distance = 800
@@ -30,9 +58,7 @@ class radar_sheet():
         self.width = np.pi*radar_theta/180
         self.colors = plt.cm.viridis(radar_distance / 10.)
 
-        # 创建 tkinter 窗口
-        root = tk.Tk()
-        root.title("Matplotlib in Tkinter")
+        
 
         self.fig = plt.figure()
 
@@ -58,7 +84,7 @@ class radar_sheet():
         self.ax_radar.grid(False,color='black',linestyle=':',linewidth=0.5)
 
         # 将 matplotlib 图形嵌入到 tkinter 窗口中
-        canvas = FigureCanvasTkAgg(self.fig, master=root)   
+        canvas = FigureCanvasTkAgg(self.fig, master=self.tk_window)   
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
@@ -180,10 +206,11 @@ class DynamicPlotThread(Thread):
                     self.shots.append(jobject)
             
             self.objects.clear()
-            for ishot in self.shots:
-                if ishot["shot time"]<1:
-                    print(ishot)
-            print("")
+            if len(self.shots) > 0:
+                for ishot in self.shots:
+                    if ishot["shot time"]<1:
+                        print(ishot)
+                print("")
             self.fig.canvas.draw()
             time.sleep(0.5)
             for ishot in self.shots:
@@ -515,42 +542,53 @@ def radar_data_analyse(data_in, data_out):
     if os.path.exists('data/radardata')==False:
         os.mkdir('data/radardata')
     while(True):
-        if len(data_in) > 0:
-            # print(f"len(data_in)={len(data_in)}")
-            radar_data_json = []
-            try:
-                with open('data/radardata/radar_data.json', 'r') as f:
-                    radar_data_json = json.load(f)
-            except:
-                print("ignore")
+        if button_msg_list["exit"]==False:
+            if len(data_in) > 0:
 
-            objects_data_item = {}
-            for idata_in in data_in:
-                radar_data_list = radar_computer_ld2450(idata_in)
-                # print(f"radar_data_list={radar_data_list}")
-                localtime = time.localtime()
-                localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
-                objects_data_item["time"]=localtimestr
-                objects_data_item["data"]=radar_data_list
-                radar_data_json.append(objects_data_item)
-            
-            with open('data/radardata/radar_data.json', 'w') as f:
-                json.dump(radar_data_json, f, indent=4)
-            
-            data_in_1 = data_in.pop()
-            if len(data_in_1["data"]) > 0:
-                # print(f"data_in_1={data_in_1['data']}")
-                data_in.clear()
-                radar_data_list = radar_computer_ld2450(data_in_1)
-                for i_data in radar_data_list:
-                    data_out.append(i_data)
-                # print(f"data_out={data_out}")
+                if button_msg_list["json record"]==True:
+                    # print(f"len(data_in)={len(data_in)}")
+                    radar_data_json = []
+                    try:
+                        with open('data/radardata/radar_data.json', 'r') as f:
+                            radar_data_json = json.load(f)
+                    except:
+                        print("ignore")
+
+                    objects_data_item = {}
+                    for idata_in in data_in:
+                        radar_data_list = radar_computer_ld2450(idata_in)
+                        # print(f"radar_data_list={radar_data_list}")
+                        localtime = time.localtime()
+                        localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
+                        objects_data_item["time"]=localtimestr
+                        objects_data_item["data"]=radar_data_list
+                        radar_data_json.append(objects_data_item)
+                    
+                    with open('data/radardata/radar_data.json', 'w') as f:
+                        json.dump(radar_data_json, f, indent=4)
+                else:
+                    pass
+
+                data_in_1 = data_in.pop()
+                if len(data_in_1["data"]) > 0:
+                    # print(f"data_in_1={data_in_1['data']}")
+                    data_in.clear()
+                    radar_data_list = radar_computer_ld2450(data_in_1)
+                    for i_data in radar_data_list:
+                        data_out.append(i_data)
+                    # print(f"data_out={data_out}")
+            else:
+                time.sleep(0.2)
         else:
             time.sleep(0.2)
 
 if __name__ == '__main__':
 
-    radar1 = radar_sheet(90, 120, 800, 36)
+    # 创建 tkinter 窗口
+    radar_tk_window = tk.Tk()
+    radar_tk_window.title("radar collect tool")
+
+    radar1 = radar_sheet(radar_tk_window, 90, 120, 800, 36)
     plt.title('24GHz radar collect')
 
     radar_original_data = [
@@ -577,16 +615,10 @@ if __name__ == '__main__':
     dynamic_plot = DynamicPlotThread(radar1.fig, radar1.ax_radar, objects)
     dynamic_plot.start()
 
-    # while True:
-    #     # if len(objects)>0:
-    #     #     print(objects)
-    #     #     objects.clear()
-    #     # else:
-    #     #     time.sleep(1)
-    #     #     print("no data")
-    #     time.sleep(1)
+    button_exit = tk_button(radar_tk_window, name = "exit", text="exit", width=len("exit"), height=1, b_x = 0, b_y = 0, callback=exit_button_callback)
 
-    # plt.show()
+    button_json_switch = tk_button(radar_tk_window, name = "json record switch", text="json record off", width=len("json record off"), height=1, b_x = 80, b_y = 0, callback=json_record_button_callback)
+
     tk.mainloop()
 
     os._exit(0)
