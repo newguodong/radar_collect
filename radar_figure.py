@@ -19,13 +19,15 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
 
-button_msg_list = {"exit":False, "json record":False}
+button_msg_list = {"exit":False, "json record":False, "scan mode":"multi"}
 button_dict = {}
+
+sendmsglist=[]
 
 
 def exit_button_callback():
     button_msg_list["exit"] = True
-    time.sleep(2)
+    time.sleep(1)
     os._exit(0)
 
 def json_record_button_callback():
@@ -35,6 +37,16 @@ def json_record_button_callback():
     else:
         button_msg_list["json record"] = True
         button_dict["json record switch"]["text"] = "json record on"
+
+def scan_mode_button_callback():
+    if button_msg_list["scan mode"] == "multi":
+        button_msg_list["scan mode"] = "single"
+        button_dict["scan mode"]["text"] = "scan mode single"
+        sendmsglist.append("set scan mode:single")
+    else:
+        button_msg_list["scan mode"] = "multi"
+        button_dict["scan mode"]["text"] = "scan mode multi"
+        sendmsglist.append("set scan mode:multi")
 
 class tk_button():
     def __init__(self, window, name, text, width, height, callback, b_x=0, b_y=0, b_anchor='s') -> None:
@@ -244,6 +256,42 @@ def mysocket_monitor():
         socketlistcount += 1
         mysocketmonitorfile.write('[' + str(socketlistcount) + ']' + str(isocket) + '\n\n')
     mysocketmonitorfile.close()
+
+def sendMsg(client_socket):
+    while True: 
+        if len(sendmsglist)>0:
+            send_buf = sendmsglist.pop()
+            send_buf = send_buf.encode("utf-8")
+            try:
+                client_socket.send(send_buf)
+            except (BrokenPipeError, OSError):
+                print('sendMsg() remove socket')
+                if client_socket in sockets:
+                    sockets.remove(client_socket)
+                for item_sock in mysockets:
+                    if item_sock['socket']==client_socket:
+                        mysockets.remove(item_sock)
+                if client_socket.fileno()!=-1:
+                    client_socket.shutdown(2)
+                    client_socket.close()
+                # mysocket_monitor()
+                gc.collect()
+                break
+            except:
+                print('unknow exception')
+                if client_socket in sockets:
+                    sockets.remove(client_socket)
+                for item_sock in mysockets:
+                    if item_sock['socket']==client_socket:
+                        mysockets.remove(item_sock)
+                if client_socket.fileno()!=-1:
+                    client_socket.shutdown(2)
+                    client_socket.close()
+                # mysocket_monitor()
+                gc.collect()
+                break
+        else:
+            time.sleep(0.2)
 
 # radar_head_mark = b'\xAA\xFF\x03\x00'
 # radar_tail_mark = b'\x55\xCC'
@@ -468,8 +516,8 @@ def tcp_creator(radar_data_list):
 
             t = Thread(target = readMsg, args = (client_socket, access_date, access_time, radar_data_list))
             t.start()
-            # t = Thread(target = sendMsg, args = (client_socket,))
-            # t.start()
+            t = Thread(target = sendMsg, args = (client_socket,))
+            t.start()
 
             mysocketitem = {'socket':client_socket, 'rcvtimeouttimer':0}
             mysockets.append(mysocketitem)
@@ -616,8 +664,9 @@ if __name__ == '__main__':
     dynamic_plot.start()
 
     button_exit = tk_button(radar_tk_window, name = "exit", text="exit", width=len("exit"), height=1, b_x = 0, b_y = 0, callback=exit_button_callback)
+    button_exit = tk_button(radar_tk_window, name = "scan mode", text="scan mode multi", width=len("scan mode multi"), height=1, b_x = 50, b_y = 0, callback=scan_mode_button_callback)
 
-    button_json_switch = tk_button(radar_tk_window, name = "json record switch", text="json record off", width=len("json record off"), height=1, b_x = 80, b_y = 0, callback=json_record_button_callback)
+    button_json_switch = tk_button(radar_tk_window, name = "json record switch", text="json record off", width=len("json record off"), height=1, b_x = 180, b_y = 0, callback=json_record_button_callback)
 
     tk.mainloop()
 
