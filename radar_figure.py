@@ -42,11 +42,11 @@ def scan_mode_button_callback():
     if button_msg_list["scan mode"] == "multi":
         button_msg_list["scan mode"] = "single"
         button_dict["scan mode"]["text"] = "scan mode single"
-        sendmsglist.append("set scan mode:single")
+        sendmsglist.append("trace single")
     else:
         button_msg_list["scan mode"] = "multi"
         button_dict["scan mode"]["text"] = "scan mode multi"
-        sendmsglist.append("set scan mode:multi")
+        sendmsglist.append("trace multi")
 
 class tk_button():
     def __init__(self, window, name, text, width, height, callback, b_x=0, b_y=0, b_anchor='s') -> None:
@@ -565,12 +565,16 @@ def radar_computer_ld2450(data_in):
 
     for radar_object in radar_objects_data:
         if sum(radar_object[0:4]) > 0:
+            x_side = 0
             radar_object_dict = {}
             radar_object_dict["radar_model"] = "ld2450"
             radar_object_dict["id"] = radar_objects_data.index(radar_object)
             radar_object_dict["rect_x"] = radar_object[0]+radar_object[1]*256
             if radar_object[1]&int('10000000', 2):
                 radar_object_dict["rect_x"] -= 0x8000
+                x_side = 1
+            # else:
+            #     radar_object_dict["rect_x"] = 0-radar_object_dict["rect_x"]
             radar_object_dict["rect_y"] = radar_object[2]+radar_object[3]*256-2**15
             radar_object_dict["speed"] = radar_object[4]+radar_object[5]*256
             radar_object_dict["dis_reso"] = radar_object[6]+radar_object[7]*256
@@ -579,6 +583,8 @@ def radar_computer_ld2450(data_in):
             polar_posi = Rectangular_to_Polar(radar_object_dict["rect_x"], radar_object_dict["rect_y"])
             radar_object_dict["polar_r"]  = polar_posi[0]
             radar_object_dict["polar_theta"]  = polar_posi[1]
+            if x_side == 1:
+                radar_object_dict["polar_theta"] = 180-radar_object_dict["polar_theta"]
             radar_objects.append(radar_object_dict)
     # print(f"radar_objects={radar_objects}")
     return radar_objects
