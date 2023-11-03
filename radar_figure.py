@@ -18,6 +18,8 @@ import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
+from matplotlib.ticker import MultipleLocator
+
 
 button_msg_list = {"exit":False, "json record":False, "scan mode":"multi"}
 button_dict = {}
@@ -55,12 +57,12 @@ class tk_button():
         button = tk.Button(window,width=width, height=height, text=text, padx=1, pady=1, anchor='center', command = callback)
         button.place(x = b_x, y = b_y)
         button_dict[name] = button
-        
-    
+
 
 class radar_sheet():
-    def __init__(self, radar_tk_window, radar_normal_angel, radar_theta, radar_distance, sortnum) -> None:
+    def __init__(self, radar_tk_window, sheet_type, radar_normal_angel, radar_theta, radar_distance, sortnum, dis_reso) -> None:
         self.tk_window = radar_tk_window
+        self.sheet_type = sheet_type
         self.radar_normal_angel = 90
         self.radar_theta = 120
         self.radar_distance = 800
@@ -74,26 +76,41 @@ class radar_sheet():
 
         self.fig = plt.figure()
 
-        self.ax_radar = self.fig.add_subplot(projection='polar')
+        if sheet_type == "polar":
+            self.ax_radar = self.fig.add_subplot(projection='polar')
 
-        self.theta = np.pi*radar_normal_angel/180
-        self.width = np.pi*radar_theta/180
-        self.colors = plt.cm.viridis(radar_distance / 10.)
+            self.theta = np.pi*radar_normal_angel/180
+            self.width = np.pi*radar_theta/180
+            self.colors = plt.cm.viridis(radar_distance / 10.)
 
-        self.ax_radar.bar(self.theta, radar_distance, width=self.width, bottom=0.0, color=self.colors, alpha=0.5)
+            self.ax_radar.bar(self.theta, radar_distance, width=self.width, bottom=0.0, color=self.colors, alpha=0.5)
 
-        self.ax_radar.set_thetamin(0)
-        self.ax_radar.set_thetamax(360)
-        self.ax_radar.set_rlim(0, radar_distance)
+            self.ax_radar.set_thetamin(0)
+            self.ax_radar.set_thetamax(360)
+            self.ax_radar.set_rlim(0, radar_distance)
 
-        plt.setp(self.ax_radar.get_xticklabels(), visible=False)
-        plt.setp(self.ax_radar.get_yticklabels(), visible=False)
+            plt.setp(self.ax_radar.get_xticklabels(), visible=False)
+            plt.setp(self.ax_radar.get_yticklabels(), visible=False)
 
-        a=[i*np.pi/18 for i in range(1,37)]
-        b =sorted([i for i in range(1,37)],reverse=True)
-        plt.thetagrids([i*180/np.pi for i in a],b)
+            a=[i*np.pi/18 for i in range(1,37)]
+            b =sorted([i for i in range(1,37)],reverse=True)
+            plt.thetagrids([i*180/np.pi for i in a],b)
 
-        self.ax_radar.grid(False,color='black',linestyle=':',linewidth=0.5)
+            self.ax_radar.grid(False,color='black',linestyle=':',linewidth=0.5)
+        else:
+            self.ax_radar = self.fig.add_subplot()
+
+            plt.gca().set_aspect('equal', adjustable='box')
+
+            self.ax_radar.set_xlim(xmin=-self.radar_distance, xmax=self.radar_distance)
+            self.ax_radar.set_ylim(ymin=0, ymax=self.radar_distance)
+            self.ax_radar.xaxis.set_major_locator(MultipleLocator(dis_reso))
+            self.ax_radar.yaxis.set_major_locator(MultipleLocator(dis_reso))
+            
+
+            self.ax_radar.grid(False,color='black',linestyle=':',linewidth=0.5)
+
+        
 
         # 将 matplotlib 图形嵌入到 tkinter 窗口中
         canvas = FigureCanvasTkAgg(self.fig, master=self.tk_window)   
@@ -101,21 +118,6 @@ class radar_sheet():
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         pass
-
-    def refresh_sheet(self):
-        self.ax_radar.set_thetamin(0)
-        self.ax_radar.set_thetamax(360)
-        self.ax_radar.set_rlim(0, self.radar_distance)
-
-        plt.setp(self.ax_radar.get_xticklabels(), visible=False)
-        plt.setp(self.ax_radar.get_yticklabels(), visible=False)
-
-        a=[i*np.pi/18 for i in range(1,37)]
-        b =sorted([i for i in range(1,37)],reverse=True)
-        plt.thetagrids([i*180/np.pi for i in a],b)
-
-        self.ax_radar.grid(False,color='black',linestyle=':',linewidth=0.5)
-        self.ax_radar.bar(self.theta, self.radar_distance, width=self.width, bottom=0.0, color=self.colors, alpha=0.5)
 
 
 class radar_shot():
@@ -129,21 +131,31 @@ class radar_shot():
         # self.color = 'red'
         self.color = mcolors.TABLEAU_COLORS[colors[random.randint(0, len(colors)-1)]]
 
-        self.ax = radar_sheet
-        pt, = self.ax.plot(np.pi*polar_theta/180, polar_r, 'o', picker=5, color=self.color, markersize = 8)
-        self.pt = pt
+        self.ax = radar_sheet.ax_radar
+        self.radar_sheet = radar_sheet
+        if radar_sheet.sheet_type == "polar":
+            pt, = self.ax.plot(np.pi*polar_theta/180, polar_r, 'o', picker=5, color=self.color, markersize = 8)
+            self.pt = pt
+        else:
+            pt, = self.ax.plot(rectx, recty, 'o', picker=5, color=self.color, markersize = 8)
+            self.pt = pt
         pass
     
-    def newlocation(self, polar_theta, polar_r):
+    def newlocation(self, polar_theta, polar_r, rect_x, rect_y):
         try:
             self.pt.remove()
         except ValueError:
             # print("ignore shot")
             pass
-        self.polar_theta = polar_theta
-        self.polar_r = polar_r
-        pt, = self.ax.plot(np.pi*polar_theta/180, polar_r, 'o', picker=5, color=self.color, markersize = 8)
-        self.pt = pt
+
+        if self.radar_sheet.sheet_type == "polar":
+            self.polar_theta = polar_theta
+            self.polar_r = polar_r
+            pt, = self.ax.plot(np.pi*polar_theta/180, polar_r, 'o', picker=5, color=self.color, markersize = 8)
+            self.pt = pt
+        else:
+            pt, = self.ax.plot(rect_x, rect_y, 'o', picker=5, color=self.color, markersize = 8)
+            self.pt = pt
         
     
     def del_shot(self):
@@ -155,10 +167,9 @@ class radar_shot():
 
 
 class DynamicPlotThread(Thread):
-    def __init__(self, fig, ax, objects):
+    def __init__(self, radar_sheet, objects):
         Thread.__init__(self)
-        self.fig = fig
-        self.ax = ax
+        self.radar_sheet = radar_sheet
         self.objects = objects
 
         self.shots = []
@@ -190,7 +201,7 @@ class DynamicPlotThread(Thread):
                         jobject["shot_id"] = iobject["id"]
                         jobject["shot status"] = 1
                         jobject["shot time"] = 0
-                        jobject["shot shot"] = radar_shot(self.ax, jobject["polar_theta"], jobject["polar_r"])
+                        jobject["shot shot"] = radar_shot(self.radar_sheet, jobject["polar_theta"], jobject["polar_r"], jobject["rect_x"], jobject["rect_y"])
                         self.shots.append(jobject)
                     elif modify_mark:
                         # print("modify_mark")
@@ -207,14 +218,14 @@ class DynamicPlotThread(Thread):
                         self.shots[ishot_index]["shot status"] = 1
                         self.shots[ishot_index]["shot time"] = 0
 
-                        self.shots[ishot_index]["shot shot"].newlocation(self.shots[ishot_index]["polar_theta"], self.shots[ishot_index]["polar_r"])
+                        self.shots[ishot_index]["shot shot"].newlocation(self.shots[ishot_index]["polar_theta"], self.shots[ishot_index]["polar_r"], self.shots[ishot_index]["rect_x"], self.shots[ishot_index]["rect_y"])
                 else:
                     print("creat new shot")
                     jobject = iobject
                     jobject["shot_id"] = iobject["id"]
                     jobject["shot status"] = 1
                     jobject["shot time"] = 0
-                    jobject["shot shot"] = radar_shot(self.ax, jobject["polar_theta"], jobject["polar_r"])
+                    jobject["shot shot"] = radar_shot(self.radar_sheet, jobject["polar_theta"], jobject["polar_r"], jobject["rect_x"], jobject["rect_y"])
                     self.shots.append(jobject)
             
             self.objects.clear()
@@ -223,7 +234,7 @@ class DynamicPlotThread(Thread):
                     if ishot["shot time"]<1:
                         print(ishot)
                 print("")
-            self.fig.canvas.draw()
+            self.radar_sheet.fig.canvas.draw()
             time.sleep(0.5)
             for ishot in self.shots:
                 if ishot["shot status"]==1:
@@ -360,7 +371,10 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                         radar_data_frame_tail = radar_tail_posi+len(radar_tail_mark)
                         
                         # print(f"read_posi={read_posi}")
-                        radar_data_frame = struct.unpack(str(radar_data_frame_tail-radar_data_frame_head)+"B", rcv_buf[read_posi+radar_data_frame_head:read_posi+radar_data_frame_tail])
+                        try:
+                            radar_data_frame = struct.unpack(str(radar_data_frame_tail-radar_data_frame_head)+"B", rcv_buf[read_posi+radar_data_frame_head:read_posi+radar_data_frame_tail])
+                        except:
+                            pass
                         # print(f"read_posi={read_posi}")
                         read_posi += radar_data_frame_tail-radar_data_frame_head
                         if len(radar_data_frame)==30:
@@ -570,17 +584,22 @@ def radar_computer_ld2450(data_in):
             radar_object_dict["radar_model"] = "ld2450"
             radar_object_dict["id"] = radar_objects_data.index(radar_object)
             radar_object_dict["rect_x"] = radar_object[0]+radar_object[1]*256
+            polar_theta_rect_x = 0
             if radar_object[1]&int('10000000', 2):
                 radar_object_dict["rect_x"] -= 0x8000
                 x_side = 1
-            # else:
-            #     radar_object_dict["rect_x"] = 0-radar_object_dict["rect_x"]
+                polar_theta_rect_x = radar_object_dict["rect_x"]
+            else:
+                polar_theta_rect_x = radar_object_dict["rect_x"]
+                radar_object_dict["rect_x"] = 0-radar_object_dict["rect_x"]
+            
             radar_object_dict["rect_y"] = radar_object[2]+radar_object[3]*256-2**15
             radar_object_dict["speed"] = radar_object[4]+radar_object[5]*256
             radar_object_dict["dis_reso"] = radar_object[6]+radar_object[7]*256
             radar_object_dict["rect_x"] = radar_object_dict["rect_x"]/10
+            polar_theta_rect_x = polar_theta_rect_x/10
             radar_object_dict["rect_y"] = radar_object_dict["rect_y"]/10
-            polar_posi = Rectangular_to_Polar(radar_object_dict["rect_x"], radar_object_dict["rect_y"])
+            polar_posi = Rectangular_to_Polar(polar_theta_rect_x, radar_object_dict["rect_y"])
             radar_object_dict["polar_r"]  = polar_posi[0]
             radar_object_dict["polar_theta"]  = polar_posi[1]
             if x_side == 0:
@@ -642,7 +661,7 @@ if __name__ == '__main__':
     radar_tk_window = tk.Tk()
     radar_tk_window.title("radar collect tool")
 
-    radar1 = radar_sheet(radar_tk_window, 90, 120, 800, 36)
+    radar_sheet1 = radar_sheet(radar_tk_window, "rect", 90, 120, 800, 36, 36)
     plt.title('24GHz radar collect')
 
     radar_original_data = [
@@ -666,7 +685,7 @@ if __name__ == '__main__':
     t.start()
 
 
-    dynamic_plot = DynamicPlotThread(radar1.fig, radar1.ax_radar, objects)
+    dynamic_plot = DynamicPlotThread(radar_sheet1, objects)
     dynamic_plot.start()
 
     button_exit = tk_button(radar_tk_window, name = "exit", text="exit", width=len("exit"), height=1, b_x = 0, b_y = 0, callback=exit_button_callback)
