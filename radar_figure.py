@@ -374,6 +374,8 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                         try:
                             radar_data_frame = struct.unpack(str(radar_data_frame_tail-radar_data_frame_head)+"B", rcv_buf[read_posi+radar_data_frame_head:read_posi+radar_data_frame_tail])
                         except:
+                            print("unpack error")
+                            read_posi = len(rcv_buf)
                             pass
                         # print(f"read_posi={read_posi}")
                         read_posi += radar_data_frame_tail-radar_data_frame_head
