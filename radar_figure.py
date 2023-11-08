@@ -41,6 +41,7 @@ def json_record_button_callback():
         button_dict["json record switch"]["text"] = "json record on"
 
 def scan_mode_button_callback():
+    print("scan mode button express once")
     if button_msg_list["scan mode"] == "multi":
         button_msg_list["scan mode"] = "single"
         button_dict["scan mode"]["text"] = "scan mode single"
@@ -49,6 +50,14 @@ def scan_mode_button_callback():
         button_msg_list["scan mode"] = "multi"
         button_dict["scan mode"]["text"] = "scan mode multi"
         sendmsglist.append("trace multi")
+
+def filter_query_button_callback():
+    print("filter query button express once")
+    sendmsglist.append("query filter")
+
+def set_filter_button_callback():
+    print("set filter button express once")
+    sendmsglist.append("set filter: 567, 123, 789, end")
 
 class tk_button():
     def __init__(self, window, name, text, width, height, callback, b_x=0, b_y=0, b_anchor='s') -> None:
@@ -110,6 +119,37 @@ class radar_sheet():
 
             self.ax_radar.grid(False,color='black',linestyle=':',linewidth=0.5)
 
+            # plt.gca().add_patch(plt.Rectangle(xy=(0, 36), width=72, height=108, edgecolor='green', fill=False, linewidth=2))
+            # self.valid_dis = 600
+
+            rect_x_list = list(range(0-108, -520-108, -108))
+            rect_y_list = list(range(0, 600, 108))
+
+            self.scan_rect_xy_list = []
+
+            for rect_x in rect_x_list:
+                for rect_y in rect_y_list:
+                    rect_xy_item = [rect_x, rect_y]
+                    self.scan_rect_xy_list.append(rect_xy_item)
+
+            rect_x_list = list(range(0, 520, 108))
+            for rect_x in rect_x_list:
+                for rect_y in rect_y_list:
+                    rect_xy_item = [rect_x, rect_y]
+                    self.scan_rect_xy_list.append(rect_xy_item)
+
+            print(len(self.scan_rect_xy_list))
+
+            print(self.scan_rect_xy_list)
+
+            for item in self.scan_rect_xy_list:
+                plt.gca().add_patch(plt.Rectangle(xy=(item[0], item[1]), width=108, height=108, edgecolor='green', fill=False, linewidth=1))
+
+            test_scan = plt.gca().add_patch(plt.Rectangle(xy=(-540, 540), width=108, height=108, edgecolor='red', fill=False, linewidth=2))
+            test_scan.remove()
+
+            self.rect_filters = []
+
         
 
         # 将 matplotlib 图形嵌入到 tkinter 窗口中
@@ -117,6 +157,26 @@ class radar_sheet():
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
+        pass
+
+    def rect_filter_new_area(self, name, x, y):
+        # print("rect_filter_new_area")
+        rect_filter_dict = {}
+        rect_filter_dict["name"]=name
+        rect_filter_dict["x"]=x
+        rect_filter_dict["y"]=y
+        rect_filter_dict["area"]=plt.gca().add_patch(plt.Rectangle(xy=(x, y), width=108, height=108, edgecolor='red', fill=False, linewidth=2))
+        self.rect_filters.append(rect_filter_dict)
+        pass
+
+    def rect_filter_move(self, name, x, y):
+        # print("rect_filter_move")
+        for item in self.rect_filters:
+            if name in item:
+                item["area"].remove()
+                self.rect_filters.remove(item)
+                break
+        self.rect_filter_new_area(name, x, y)
         pass
 
 
@@ -229,11 +289,11 @@ class DynamicPlotThread(Thread):
                     self.shots.append(jobject)
             
             self.objects.clear()
-            if len(self.shots) > 0:
-                for ishot in self.shots:
-                    if ishot["shot time"]<1:
-                        print(ishot)
-                print("")
+            # if len(self.shots) > 0:
+            #     for ishot in self.shots:
+            #         if ishot["shot time"]<1:
+            #             print(ishot)
+            #     print("")
             self.radar_sheet.fig.canvas.draw()
             time.sleep(0.5)
             for ishot in self.shots:
@@ -308,6 +368,9 @@ def sendMsg(client_socket):
 # radar_tail_mark = b'\x55\xCC'
 radar_head_mark = bytes([0xaa, 0xff, 0x03, 0x00])
 radar_tail_mark = bytes([0x55, 0xcc])
+
+radar_cmd_head_mark = bytes([0xfd, 0xfc, 0xfb, 0xfa])
+radar_cmd_tail_mark = bytes([4, 3, 2, 1])
 radar_data = []
 def readMsg(client_socket, access_date, access_time, radar_data_list):
     msg_count = 0
@@ -402,6 +465,38 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                             read_posi = len(rcv_buf)
                             # while True:
                             #     time.sleep(1)
+                    elif radar_head_posi == -1 and radar_tail_posi == -1:
+                        radar_cmd_head_posi = rcv_buf[read_posi:].find(radar_cmd_head_mark)
+                        radar_cmd_tail_posi = rcv_buf[read_posi+radar_cmd_head_posi:].find(radar_cmd_tail_mark)
+
+                        if radar_cmd_head_posi != -1 and radar_cmd_tail_posi != -1:
+                            radar_cmd_frame_head = radar_cmd_head_posi
+                            radar_cmd_frame_tail = radar_cmd_tail_posi+len(radar_cmd_tail_mark)
+                            
+                            # print(f"read_posi={read_posi}")
+                            try:
+                                radar_cmd_frame = struct.unpack(str(radar_cmd_frame_tail-radar_cmd_frame_head)+"B", rcv_buf[read_posi+radar_cmd_frame_head:read_posi+radar_cmd_frame_tail])
+                            except:
+                                print("cmd unpack error")
+                                read_posi = len(rcv_buf)
+                                pass
+                            # print(f"read_posi={read_posi}")
+                            read_posi += radar_cmd_frame_tail-radar_cmd_frame_head
+
+                            print(f"rcv cmd:{radar_cmd_frame}")
+
+                            read_len += len(radar_cmd_frame)
+
+                        elif radar_cmd_head_posi == -1:
+                            print("radar_cmd_head_posi error")
+                            read_posi = len(rcv_buf)
+                            break
+                        elif radar_cmd_frame_tail == -1:
+                            print("cmd continue recv...\n")
+                            break
+                        else:
+                            print("cmd other\n")
+
                     elif radar_head_posi == -1:
                         print("radar_head_posi error")
                         read_posi = len(rcv_buf)
@@ -657,6 +752,11 @@ def radar_data_analyse(data_in, data_out):
         else:
             time.sleep(0.2)
 
+def test_func(radar_sheet):
+    for i in radar_sheet.scan_rect_xy_list:
+        radar_sheet.rect_filter_move("area", i[0], i[1])
+        time.sleep(1)
+
 if __name__ == '__main__':
 
     # 创建 tkinter 窗口
@@ -671,6 +771,9 @@ if __name__ == '__main__':
     ]
 
     t = Thread(target = tcp_creator, args = (radar_original_data, ))
+    t.start()
+
+    t = Thread(target = test_func, args = (radar_sheet1, ))
     t.start()
 
     # objects = [
@@ -694,7 +797,10 @@ if __name__ == '__main__':
     button_exit = tk_button(radar_tk_window, name = "scan mode", text="scan mode multi", width=len("scan mode multi"), height=1, b_x = 50, b_y = 0, callback=scan_mode_button_callback)
 
     button_json_switch = tk_button(radar_tk_window, name = "json record switch", text="json record off", width=len("json record off"), height=1, b_x = 180, b_y = 0, callback=json_record_button_callback)
+    
+    button_filter_query = tk_button(radar_tk_window, name = "filter_query", text="query filter", width=len("query filter"), height=1, b_x = 310, b_y = 0, callback=filter_query_button_callback)
 
+    button_filter_query = tk_button(radar_tk_window, name = "set_filter", text="set filter", width=len("set filter"), height=1, b_x = 410, b_y = 0, callback=set_filter_button_callback)
     tk.mainloop()
 
     os._exit(0)
