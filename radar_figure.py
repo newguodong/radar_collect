@@ -11,6 +11,7 @@ import re
 import os
 import gc
 import struct
+import sys
 
 import json
 
@@ -25,6 +26,9 @@ button_msg_list = {"exit":False, "json record":False, "scan mode":"multi"}
 button_dict = {}
 
 sendmsglist=[]
+
+radar_msg_list = []
+
 
 
 def exit_button_callback():
@@ -57,7 +61,7 @@ def filter_query_button_callback():
 
 def set_filter_button_callback():
     print("set filter button express once")
-    sendmsglist.append("set filter: 567, 123, 789, end")
+    sendmsglist.append("set filter: 1, 1000, 1000, -1000, 5000, 0, 0, 0, 0, 500, 0, 0, 800, end")
 
 class tk_button():
     def __init__(self, window, name, text, width, height, callback, b_x=0, b_y=0, b_anchor='s') -> None:
@@ -67,6 +71,36 @@ class tk_button():
         button.place(x = b_x, y = b_y)
         button_dict[name] = button
 
+def line_slope(x1, y1, x2, y2):
+    try:
+        return (y2 - y1) / (x2 - x1)
+    except(ZeroDivisionError):
+        return 0
+
+def rect_2p_to_xywh(x1, y1, x2, y2):
+    rect_line_slope = line_slope(x1, y1, x2, y2)
+    rect_xywh = {}
+
+    if rect_line_slope > 0:
+        if y2 > y1:
+            rect_xywh['xy'] = (x1, y1)
+            rect_xywh['w'] = x2 - x1
+            rect_xywh['h'] = y2 - y1
+        else:
+            rect_xywh['xy'] = (x2, y2)
+            rect_xywh['w'] = x1 - x2
+            rect_h = y1 - y2
+    else:
+        if y2 > y1:
+            rect_xywh['xy'] = (x2, y1)
+            rect_xywh['w'] = x1 - x2
+            rect_xywh['h'] = y2 - y1
+        else:
+            rect_xywh['xy'] = (x1, y2)
+            rect_xywh['w'] = x2 - x1
+            rect_xywh['h'] = y1 - y2
+    return rect_xywh
+    
 
 class radar_sheet():
     def __init__(self, radar_tk_window, sheet_type, radar_normal_angel, radar_theta, radar_distance, sortnum, dis_reso) -> None:
@@ -159,24 +193,28 @@ class radar_sheet():
 
         pass
 
-    def rect_filter_new_area(self, name, x, y):
+    def rect_filter_new_area(self, name, sx, sy, ex, ey):
         # print("rect_filter_new_area")
         rect_filter_dict = {}
         rect_filter_dict["name"]=name
-        rect_filter_dict["x"]=x
-        rect_filter_dict["y"]=y
-        rect_filter_dict["area"]=plt.gca().add_patch(plt.Rectangle(xy=(x, y), width=108, height=108, edgecolor='red', fill=False, linewidth=2))
+
+        rect_xywh = rect_2p_to_xywh(sx, sy, ex, ey)
+
+        rect_filter_dict["xywh"]=rect_xywh
+        rect_filter_dict["area"]=plt.gca().add_patch(plt.Rectangle(xy=rect_xywh["xy"], width=rect_xywh["w"], height=rect_xywh["h"], edgecolor='red', fill=False, linewidth=2))
         self.rect_filters.append(rect_filter_dict)
         pass
 
-    def rect_filter_move(self, name, x, y):
+    def rect_filter_move(self, name, sx, sy, ex, ey):
         # print("rect_filter_move")
+        find_name = 0
         for item in self.rect_filters:
             if name in item:
+                find_name = 1
                 item["area"].remove()
                 self.rect_filters.remove(item)
                 break
-        self.rect_filter_new_area(name, x, y)
+        self.rect_filter_new_area(name, sx, sy, ex, ey)
         pass
 
 
@@ -371,7 +409,6 @@ radar_tail_mark = bytes([0x55, 0xcc])
 
 radar_cmd_head_mark = bytes([0xfd, 0xfc, 0xfb, 0xfa])
 radar_cmd_tail_mark = bytes([4, 3, 2, 1])
-radar_data = []
 def readMsg(client_socket, access_date, access_time, radar_data_list):
     msg_count = 0
     rcv_buf = bytes()
@@ -380,9 +417,12 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
     one_dataframe_data = bytes()
     send_sn_counter = 0
     picture_count = 0
+    # radar_data_frame = 0
     while True:
         try:
             recv_data = client_socket.recv(65536)
+            # print(f"recv_data len={len(recv_data)}")
+            # print(f"recv_data={recv_data}")
         except ConnectionResetError:
             print('readMsg(1) remove socket')
             if client_socket in sockets:
@@ -434,16 +474,18 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                         radar_data_frame_tail = radar_tail_posi+len(radar_tail_mark)
                         
                         # print(f"read_posi={read_posi}")
+                        # radar_data_frame = struct.unpack(str(radar_data_frame_tail-radar_data_frame_head)+"B", rcv_buf[read_posi+radar_data_frame_head:read_posi+radar_data_frame_tail])
                         try:
                             radar_data_frame = struct.unpack(str(radar_data_frame_tail-radar_data_frame_head)+"B", rcv_buf[read_posi+radar_data_frame_head:read_posi+radar_data_frame_tail])
+                            # print(type(radar_data_frame))
                         except:
                             print("unpack error")
                             read_posi = len(rcv_buf)
+                            print("Unexpected error:", sys.exc_info()[0])
                             pass
                         # print(f"read_posi={read_posi}")
                         read_posi += radar_data_frame_tail-radar_data_frame_head
                         if len(radar_data_frame)==30:
-                            radar_data.append(radar_data_frame)
                             # print(radar_data_frame)
                             # myradar_data = open('radardata.bin', 'ab')
                             # myradar_data.write(bytes(radar_data_frame))
@@ -457,7 +499,7 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                             radar_data_list.append(radar_data_frame_dict)
 
 
-                            read_len += 30
+                            read_len += len(radar_data_frame)
                             
                         else:
                             print("radar_data_frame len error")
@@ -479,11 +521,16 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                             except:
                                 print("cmd unpack error")
                                 read_posi = len(rcv_buf)
+                                print("Unexpected error:", sys.exc_info()[0])
                                 pass
                             # print(f"read_posi={read_posi}")
                             read_posi += radar_cmd_frame_tail-radar_cmd_frame_head
 
-                            print(f"rcv cmd:{radar_cmd_frame}")
+                            # print(f"rcv cmd:{radar_cmd_frame}")
+
+                            #---------------------------------------
+                            radar_msg_list.append(list(radar_cmd_frame))
+                            #---------------------------------------
 
                             read_len += len(radar_cmd_frame)
 
@@ -753,9 +800,41 @@ def radar_data_analyse(data_in, data_out):
             time.sleep(0.2)
 
 def test_func(radar_sheet):
-    for i in radar_sheet.scan_rect_xy_list:
-        radar_sheet.rect_filter_move("area", i[0], i[1])
-        time.sleep(1)
+    # for i in radar_sheet.scan_rect_xy_list:
+    #     radar_sheet.rect_filter_move("area", i[0], i[1])
+    while True:
+        if len(radar_msg_list) > 0:
+            radar_cmd_msg = radar_msg_list.pop()
+            print(f"radar_cmd_msg={radar_cmd_msg}")
+
+            radar_cmd_msg_bytes = bytes(radar_cmd_msg)
+
+            if radar_cmd_msg_bytes[6]==0xc1:
+
+                area_filter_data = []
+
+                area_filter_data.append(radar_cmd_msg_bytes[12:12+8])
+                area_filter_data.append(radar_cmd_msg_bytes[12+8:12+8+8])
+                area_filter_data.append(radar_cmd_msg_bytes[12+8+8:12+8+8+8])
+
+                area_filter_xy = []
+
+                for item in area_filter_data:
+                    area_filter_item = {}
+                    area_filter_item["area1_sx"] = struct.unpack("h", item[0:2])[0]/10
+                    area_filter_item["area1_sy"] = struct.unpack("h", item[2:4])[0]/10
+                    area_filter_item["area1_ex"] = struct.unpack("h", item[4:6])[0]/10
+                    area_filter_item["area1_ey"] = struct.unpack("h", item[6:8])[0]/10
+                    area_filter_xy.append(area_filter_item)
+                print(f"area_filter_xy={area_filter_xy}")
+
+                rect_number = 1
+                for item in area_filter_xy:
+                    rect_name = "area"+str(rect_number)
+                    radar_sheet.rect_filter_move(rect_name, item["area1_sx"], item["area1_sy"], item["area1_ex"], item["area1_ey"])
+
+        else:
+            time.sleep(0.2)
 
 if __name__ == '__main__':
 

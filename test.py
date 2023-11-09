@@ -55,7 +55,50 @@ print(len(rect_xy_list))
 
 print(rect_xy_list)
 
-for item in rect_xy_list:
-    plt.gca().add_patch(plt.Rectangle(xy=(item[0], item[1]), width=108, height=108, edgecolor='green', fill=False, linewidth=1))
+# for item in rect_xy_list:
+
+rect2 = {"sx":0, "sy":0, "ex":0, "ey":0}
+
+rect4_list = []
+
+# if rect2['sx']<rect2['ex']:
+
+def line_slope(x1, y1, x2, y2):
+    try:
+        return (y2 - y1) / (x2 - x1)
+    except(ZeroDivisionError):
+        return 0
+
+rect_xy = ()
+rect_w = 0
+rect_h = 0
+
+rect_line_slope = line_slope(rect2['sx'], rect2['sy'], rect2['ex'], rect2['ey'])
+
+if rect_line_slope > 0:
+    if rect2['ey'] > rect2['sy']:
+        rect_xy = (rect2['sx'], rect2['sy'])
+        rect_w = rect2['ex'] - rect2['sx']
+        rect_h = rect2['ey'] - rect2['sy']
+    else:
+        rect_xy = (rect2['ex'], rect2['ey'])
+        rect_w = rect2['sx'] - rect2['ex']
+        rect_h = rect2['sy'] - rect2['ey']
+else:
+    if rect2['ey'] > rect2['sy']:
+        rect_xy = (rect2['ex'], rect2['sy'])
+        rect_w = rect2['sx'] - rect2['ex']
+        rect_h = rect2['ey'] - rect2['sy']
+    else:
+        rect_xy = (rect2['sx'], rect2['ey'])
+        rect_w = rect2['ex'] - rect2['sx']
+        rect_h = rect2['sy'] - rect2['ey']
+
+print(f"rect_xy={rect_xy}")
+print(f"rect_w={rect_w}")
+print(f"rect_h={rect_h}")
+
+
+plt.gca().add_patch(plt.Rectangle(xy=rect_xy, width=rect_w, height=rect_h, edgecolor='green', fill=False, linewidth=1))
 
 plt.show()
