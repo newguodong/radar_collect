@@ -22,12 +22,14 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MultipleLocator
 
 
-button_msg_list = {"exit":False, "json record":False, "scan mode":"multi"}
+button_msg_list = {"exit":False, "json record":False, "scan mode":"multi", "area1 filter":False, "area2 filter":False, "area3 filter":False}
 button_dict = {}
 
 sendmsglist=[]
 
 radar_msg_list = []
+
+next_af_msg_list = []
 
 
 
@@ -59,9 +61,65 @@ def filter_query_button_callback():
     print("filter query button express once")
     sendmsglist.append("query filter")
 
+def set_filter_area_packer(areas, filtertype = 1):
+    cmd_str = "set filter: "
+    cmd_str += str(filtertype)+", "
+
+    areas_pad_item = [0, 0, 0, 0]
+    while len(areas)<3:
+        areas.append(areas_pad_item)
+    # print(f"areas={areas}")
+
+    for item in areas:
+        for xy in item:
+            xy = xy*10
+            cmd_str += str(xy)
+            cmd_str += ", "
+    cmd_str += "end"
+
+    # print(f"cmd_str={cmd_str}")
+    sendmsglist.append(cmd_str)
+        
+
 def set_filter_button_callback():
     print("set filter button express once")
     sendmsglist.append("set filter: 1, 1000, 1000, -1000, 5000, 0, 0, 0, 0, 500, 0, 0, 800, end")
+
+def area1_filter_button_callback():
+    print("area1 filter button express once")
+    if button_msg_list["area1 filter"] == True:
+        button_msg_list["area1 filter"] = False
+        button_dict["area1 filter"]["text"] = "area1 filter off"
+    else:
+        button_msg_list["area1 filter"] = True
+        button_dict["area1 filter"]["text"] = "area1 filter on"
+
+def area2_filter_button_callback():
+    print("area2 filter button express once")
+    if button_msg_list["area2 filter"] == True:
+        button_msg_list["area2 filter"] = False
+        button_dict["area2 filter"]["text"] = "area2 filter off"
+    else:
+        button_msg_list["area2 filter"] = True
+        button_dict["area2 filter"]["text"] = "area2 filter on"
+
+def area3_filter_button_callback():
+    print("area3 filter button express once")
+    if button_msg_list["area3 filter"] == True:
+        button_msg_list["area3 filter"] = False
+        button_dict["area3 filter"]["text"] = "area3 filter off"
+    else:
+        button_msg_list["area3 filter"] = True
+        button_dict["area3 filter"]["text"] = "area3 filter on"
+
+def next_af_button_callback():
+    next_af_msg_list.append("next")
+
+def prev_af_button_callback():
+    next_af_msg_list.append("prev")
+
+def radar_rfs_button_callback():
+    sendmsglist.append("rfs")
 
 class tk_button():
     def __init__(self, window, name, text, width, height, callback, b_x=0, b_y=0, b_anchor='s') -> None:
@@ -201,7 +259,7 @@ class radar_sheet():
         rect_xywh = rect_2p_to_xywh(sx, sy, ex, ey)
 
         rect_filter_dict["xywh"]=rect_xywh
-        rect_filter_dict["area"]=plt.gca().add_patch(plt.Rectangle(xy=rect_xywh["xy"], width=rect_xywh["w"], height=rect_xywh["h"], edgecolor='red', fill=False, linewidth=2))
+        rect_filter_dict[name]=plt.gca().add_patch(plt.Rectangle(xy=rect_xywh["xy"], width=rect_xywh["w"], height=rect_xywh["h"], edgecolor='red', fill=False, linewidth=2))
         self.rect_filters.append(rect_filter_dict)
         pass
 
@@ -211,7 +269,7 @@ class radar_sheet():
         for item in self.rect_filters:
             if name in item:
                 find_name = 1
-                item["area"].remove()
+                item[name].remove()
                 self.rect_filters.remove(item)
                 break
         self.rect_filter_new_area(name, sx, sy, ex, ey)
@@ -799,7 +857,7 @@ def radar_data_analyse(data_in, data_out):
         else:
             time.sleep(0.2)
 
-def test_func(radar_sheet):
+def query_filter_area(radar_sheet):
     # for i in radar_sheet.scan_rect_xy_list:
     #     radar_sheet.rect_filter_move("area", i[0], i[1])
     while True:
@@ -836,6 +894,73 @@ def test_func(radar_sheet):
         else:
             time.sleep(0.2)
 
+def filter_area_scan(radar_sheet):
+    runtimes = 0
+    print(f"radar_sheet.scan_rect_xy_list={radar_sheet.scan_rect_xy_list}")
+
+    print("start scan...")
+    areas_counts = len(radar_sheet.scan_rect_xy_list)
+
+    areas_counter = -1
+
+    while True:
+        if len(next_af_msg_list)>0:
+            next_dir = next_af_msg_list.pop()
+
+            if next_dir == "next":
+                areas_counter+=1
+                if areas_counter >= areas_counts:
+                    areas_counter = 0
+
+            elif next_dir == "prev":
+                areas_counter -= 1
+                if areas_counter < 0:
+                    if areas_counter == -1:
+                        areas_counter = areas_counts-1
+                    elif areas_counter == -2:
+                        areas_counter = 0
+
+            item = radar_sheet.scan_rect_xy_list[areas_counter]
+            radar_sheet.rect_filter_move("test_scan", item[0], item[1], item[0]+108, item[1]+108)
+            scan_areas = []
+            scan_area_item = []
+            scan_area_item.append(item[0])
+            scan_area_item.append(item[1])
+            scan_area_item.append(item[0]+108)
+            scan_area_item.append(item[1]+108)
+            scan_areas.append(scan_area_item)
+            set_filter_area_packer(scan_areas, filtertype=1)
+
+
+        # for item in radar_sheet.scan_rect_xy_list:
+        #     while True:
+        #         if len(next_af_msg_list)>0:
+        #             next_dir = next_af_msg_list.pop()
+
+                    
+        #             print(item)
+
+        #             if next_dir == "next":
+        #                 radar_sheet.rect_filter_move("test_scan", item[0], item[1], item[0]+108, item[1]+108)
+        #                 scan_areas = []
+        #                 scan_area_item = []
+        #                 scan_area_item.append(item[0])
+        #                 scan_area_item.append(item[1])
+        #                 scan_area_item.append(item[0]+108)
+        #                 scan_area_item.append(item[1]+108)
+        #                 scan_areas.append(scan_area_item)
+        #                 set_filter_area_packer(scan_areas, filtertype=1)
+        #                 break
+        #             elif next_dir == "prev":
+        #                 item_pos = radar_sheet.scan_rect_xy_list.index(item)
+
+        #         else:
+        #             time.sleep(0.2)
+        time.sleep(0.2)
+            
+    time.sleep(10)
+
+
 if __name__ == '__main__':
 
     # 创建 tkinter 窗口
@@ -852,7 +977,10 @@ if __name__ == '__main__':
     t = Thread(target = tcp_creator, args = (radar_original_data, ))
     t.start()
 
-    t = Thread(target = test_func, args = (radar_sheet1, ))
+    t = Thread(target = query_filter_area, args = (radar_sheet1, ))
+    t.start()
+
+    t = Thread(target = filter_area_scan, args = (radar_sheet1, ))
     t.start()
 
     # objects = [
@@ -880,6 +1008,12 @@ if __name__ == '__main__':
     button_filter_query = tk_button(radar_tk_window, name = "filter_query", text="query filter", width=len("query filter"), height=1, b_x = 310, b_y = 0, callback=filter_query_button_callback)
 
     button_filter_query = tk_button(radar_tk_window, name = "set_filter", text="set filter", width=len("set filter"), height=1, b_x = 410, b_y = 0, callback=set_filter_button_callback)
+    button_filter_query = tk_button(radar_tk_window, name = "area1 filter", text="area1 filter off", width=len("area1 filter off"), height=1, b_x = 540, b_y = 0, callback=area1_filter_button_callback)
+    button_filter_query = tk_button(radar_tk_window, name = "area2 filter", text="area2 filter off", width=len("area2 filter off"), height=1, b_x = 670, b_y = 0, callback=area2_filter_button_callback)
+    button_filter_query = tk_button(radar_tk_window, name = "area3 filter", text="area3 filter off", width=len("area3 filter off"), height=1, b_x = 800, b_y = 0, callback=area3_filter_button_callback)
+    button_filter_query = tk_button(radar_tk_window, name = "prev af", text="prev af", width=len("prev af"), height=1, b_x = 930, b_y = 0, callback=prev_af_button_callback)
+    button_filter_query = tk_button(radar_tk_window, name = "next af", text="next af", width=len("next af"), height=1, b_x = 1010, b_y = 0, callback=next_af_button_callback)
+    button_filter_query = tk_button(radar_tk_window, name = "radar rfs", text="radar rfs", width=len("radar rfs"), height=1, b_x = 1100, b_y = 0, callback=radar_rfs_button_callback)
     tk.mainloop()
 
     os._exit(0)
