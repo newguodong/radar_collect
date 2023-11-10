@@ -92,7 +92,7 @@ def set_filter_area_packer(areas, filtertype = 1):
 
 def set_filter_button_callback():
     print("set filter button express once")
-    sendmsglist.append("set filter: 1, -2160, 3240, -1080, 4320, 0, 0, 0, 0, 0, 4320, 1080, 4320, end")
+    sendmsglist.append("set filter: 1, -2160, 3240, -1080, 4320, 0, 0, 0, 0, 0, 3240, 1080, 4320, end")
 
 def area1_filter_button_callback():
     print("area1 filter button express once")
@@ -139,6 +139,13 @@ def radar_rfs_button_callback():
 
     query_filter_area_msg_list.append(msg)
 
+def radar_clear_query_button_callback():
+    msg={}
+    msg["type"] = "clear"
+    next_af_msg_list.append(msg)
+
+    query_filter_area_msg_list.append(msg)
+
 def sector_button_callback():
     print("sector button express once")
     if radar_sheet_msg_dict["sector"] == True:
@@ -147,12 +154,14 @@ def sector_button_callback():
         msg={}
         msg["type"] = "sector hide"
         radar_sheet_func_msg_list.append(msg)
+        print("hide")
     else:
         radar_sheet_msg_dict["sector"] = True
         button_dict["radar sector"]["text"] = "sector on"
         msg={}
         msg["type"] = "sector show"
         radar_sheet_func_msg_list.append(msg)
+        print("show")
 
 class tk_button():
     def __init__(self, window, name, text, width, height, callback, b_x=0, b_y=0, b_anchor='s') -> None:
@@ -428,6 +437,7 @@ class radar_sheet():
             arc_end_line_y = np.linspace(y1, y2, 100)
 
             self.radar_sector_arc_end_line = self.ax_radar.plot(arc_end_line_x, arc_end_line_y, color = "blue", markersize = 1, linestyle=':')
+            self.radar_sector_valid = True
         else:
             print("radar sector already exist")
 
@@ -1099,15 +1109,16 @@ def filter_area_select(radar_sheet):
         else:
             time.sleep(0.2)
 
-def filter_area_select(radar_sheet):
+def radar_sheet_func(radar_sheet):
     while True:
         if len(radar_sheet_func_msg_list)>0:
             msg = radar_sheet_func_msg_list.pop()
+            print(f"msg={msg}")
             if msg["type"] == "sector show":
-                radar_sheet_msg_dict["sector"] = True
+                # radar_sheet_msg_dict["sector"] = True
                 radar_sheet.show_sector()
             elif msg["type"] == "sector hide":
-                radar_sheet_msg_dict["sector"] = False
+                # radar_sheet_msg_dict["sector"] = False
                 radar_sheet.hide_sector()
         else:
             time.sleep(0.5)
@@ -1134,7 +1145,7 @@ if __name__ == '__main__':
     t = Thread(target = filter_area_select, args = (radar_sheet1, ))
     t.start()
 
-    t = Thread(target = filter_area_select, args = (radar_sheet1, ))
+    t = Thread(target = radar_sheet_func, args = (radar_sheet1, ))
     t.start()
 
     # objects = [
@@ -1166,7 +1177,7 @@ if __name__ == '__main__':
     button_filter_query = tk_button(radar_tk_window, name = "area2 filter", text="area2 filter off", width=len("area2 filter off"), height=1, b_x = 670, b_y = 0, callback=area2_filter_button_callback)
     button_filter_query = tk_button(radar_tk_window, name = "area3 filter", text="area3 filter off", width=len("area3 filter off"), height=1, b_x = 800, b_y = 0, callback=area3_filter_button_callback)
     button_filter_query = tk_button(radar_tk_window, name = "radar rfs", text="radar rfs", width=len("radar rfs"), height=1, b_x = 930, b_y = 0, callback=radar_rfs_button_callback)
-    button_filter_query = tk_button(radar_tk_window, name = "radar sector", text="sector on", width=len("sector on"), height=1, b_x = 1100, b_y = 0, callback=sector_button_callback)
+    button_filter_query = tk_button(radar_tk_window, name = "query clear", text="query clear", width=len("query clear"), height=1, b_x = 1100, b_y = 0, callback=radar_clear_query_button_callback)
     tk.mainloop()
 
     os._exit(0)
