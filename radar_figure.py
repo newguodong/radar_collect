@@ -31,6 +31,10 @@ radar_msg_list = []
 
 next_af_msg_list = []
 
+radar_sheet_grid_list = []
+
+query_filter_area_msg_list = []
+
 
 
 def exit_button_callback():
@@ -83,7 +87,7 @@ def set_filter_area_packer(areas, filtertype = 1):
 
 def set_filter_button_callback():
     print("set filter button express once")
-    sendmsglist.append("set filter: 1, 1000, 1000, -1000, 5000, 0, 0, 0, 0, 500, 0, 0, 800, end")
+    sendmsglist.append("set filter: 1, -2160, 3240, -1080, 4320, 0, 0, 0, 0, 0, 4320, 1080, 4320, end")
 
 def area1_filter_button_callback():
     print("area1 filter button express once")
@@ -113,13 +117,22 @@ def area3_filter_button_callback():
         button_dict["area3 filter"]["text"] = "area3 filter on"
 
 def next_af_button_callback():
-    next_af_msg_list.append("next")
+    msg={}
+    msg["type"] = "next"
+    next_af_msg_list.append(msg)
 
 def prev_af_button_callback():
-    next_af_msg_list.append("prev")
+    msg={}
+    msg["type"] = "prev"
+    next_af_msg_list.append(msg)
 
 def radar_rfs_button_callback():
     sendmsglist.append("rfs")
+    msg={}
+    msg["type"] = "clear"
+    next_af_msg_list.append(msg)
+
+    query_filter_area_msg_list.append(msg)
 
 class tk_button():
     def __init__(self, window, name, text, width, height, callback, b_x=0, b_y=0, b_anchor='s') -> None:
@@ -158,6 +171,32 @@ def rect_2p_to_xywh(x1, y1, x2, y2):
             rect_xywh['w'] = x2 - x1
             rect_xywh['h'] = y1 - y2
     return rect_xywh
+
+def is_point_in_rect(x, y, rect):
+    x1, y1, x2, y2 = rect[0], rect[1], rect[2], rect[3]
+    if x1<= x<= x2 and y1<= y<= y2:
+        return True
+    else:
+        return False
+    
+def onclick(event):
+    print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+          (event.button, event.x, event.y, event.xdata, event.ydata))
+    # print(len(radar_sheet_grid_list))
+    for item in radar_sheet_grid_list:
+        rect_xy13 = []
+        rect_xy13.append(item["x1y1"][0])
+        rect_xy13.append(item["x1y1"][1])
+        rect_xy13.append(item["x3y3"][0])
+        rect_xy13.append(item["x3y3"][1])
+        if is_point_in_rect(event.xdata, event.ydata, rect_xy13):
+            msg={}
+            msg["type"] = "any"
+            msg["posi"] = item
+            print(msg)
+            next_af_msg_list.append(msg)
+            break
+            
     
 
 class radar_sheet():
@@ -176,6 +215,8 @@ class radar_sheet():
         
 
         self.fig = plt.figure()
+
+        self.cid = self.fig.canvas.mpl_connect('button_press_event', onclick)
 
         if sheet_type == "polar":
             self.ax_radar = self.fig.add_subplot(projection='polar')
@@ -233,6 +274,29 @@ class radar_sheet():
             print(len(self.scan_rect_xy_list))
 
             print(self.scan_rect_xy_list)
+
+            self.grid_list = []
+
+            
+
+            for o_item in self.scan_rect_xy_list:
+                grid_item = {}
+                grid_item["x1y1"] = o_item
+                temp_item = [o_item[0]+108, o_item[1]]  
+                grid_item["x2y2"] = temp_item
+                temp_item = [o_item[0]+108, o_item[1]+108]  
+                grid_item["x3y3"] = temp_item
+                temp_item = [o_item[0], o_item[1]+108]  
+                grid_item["x4y4"] = temp_item
+                self.grid_list.append(grid_item)
+            
+            # radar_sheet_grid_list = self.grid_list
+
+            for item in self.grid_list:
+                radar_sheet_grid_list.append(item)
+
+            print(f"radar_sheet_grid_list={radar_sheet_grid_list}")
+
 
             for item in self.scan_rect_xy_list:
                 plt.gca().add_patch(plt.Rectangle(xy=(item[0], item[1]), width=108, height=108, edgecolor='green', fill=False, linewidth=1))
@@ -889,12 +953,19 @@ def query_filter_area(radar_sheet):
                 rect_number = 1
                 for item in area_filter_xy:
                     rect_name = "area"+str(rect_number)
+                    rect_number+=1
                     radar_sheet.rect_filter_move(rect_name, item["area1_sx"], item["area1_sy"], item["area1_ex"], item["area1_ey"])
+        elif len(query_filter_area_msg_list) > 0:
+            msg = query_filter_area_msg_list.pop()
 
+            if msg["type"] == "clear":
+                for rect_number in range(1, 4):
+                    rect_name = "area"+str(rect_number)
+                    radar_sheet.rect_filter_move(rect_name, 0, 0, 0, 0)
         else:
             time.sleep(0.2)
 
-def filter_area_scan(radar_sheet):
+def filter_area_select(radar_sheet):
     runtimes = 0
     print(f"radar_sheet.scan_rect_xy_list={radar_sheet.scan_rect_xy_list}")
 
@@ -905,60 +976,25 @@ def filter_area_scan(radar_sheet):
 
     while True:
         if len(next_af_msg_list)>0:
-            next_dir = next_af_msg_list.pop()
+            msg = next_af_msg_list.pop()
 
-            if next_dir == "next":
-                areas_counter+=1
-                if areas_counter >= areas_counts:
-                    areas_counter = 0
-
-            elif next_dir == "prev":
-                areas_counter -= 1
-                if areas_counter < 0:
-                    if areas_counter == -1:
-                        areas_counter = areas_counts-1
-                    elif areas_counter == -2:
-                        areas_counter = 0
-
-            item = radar_sheet.scan_rect_xy_list[areas_counter]
-            radar_sheet.rect_filter_move("test_scan", item[0], item[1], item[0]+108, item[1]+108)
-            scan_areas = []
-            scan_area_item = []
-            scan_area_item.append(item[0])
-            scan_area_item.append(item[1])
-            scan_area_item.append(item[0]+108)
-            scan_area_item.append(item[1]+108)
-            scan_areas.append(scan_area_item)
-            set_filter_area_packer(scan_areas, filtertype=1)
-
-
-        # for item in radar_sheet.scan_rect_xy_list:
-        #     while True:
-        #         if len(next_af_msg_list)>0:
-        #             next_dir = next_af_msg_list.pop()
-
-                    
-        #             print(item)
-
-        #             if next_dir == "next":
-        #                 radar_sheet.rect_filter_move("test_scan", item[0], item[1], item[0]+108, item[1]+108)
-        #                 scan_areas = []
-        #                 scan_area_item = []
-        #                 scan_area_item.append(item[0])
-        #                 scan_area_item.append(item[1])
-        #                 scan_area_item.append(item[0]+108)
-        #                 scan_area_item.append(item[1]+108)
-        #                 scan_areas.append(scan_area_item)
-        #                 set_filter_area_packer(scan_areas, filtertype=1)
-        #                 break
-        #             elif next_dir == "prev":
-        #                 item_pos = radar_sheet.scan_rect_xy_list.index(item)
-
-        #         else:
-        #             time.sleep(0.2)
-        time.sleep(0.2)
-            
-    time.sleep(10)
+            if msg["type"] == "any":
+                nextposi = msg["posi"]
+                radar_sheet.rect_filter_move("test_scan", nextposi["x1y1"][0], nextposi["x1y1"][1], nextposi["x3y3"][0], nextposi["x3y3"][1])
+                scan_areas = []
+                scan_area_item = []
+                scan_area_item.append(nextposi["x1y1"][0])
+                scan_area_item.append(nextposi["x1y1"][1])
+                scan_area_item.append(nextposi["x3y3"][0])
+                scan_area_item.append(nextposi["x3y3"][1])
+                scan_areas.append(scan_area_item)
+                set_filter_area_packer(scan_areas, filtertype=1)
+            elif msg["type"] == "clear":
+                radar_sheet.rect_filter_move("test_scan", 0, 0, 0, 0)
+                # scan_areas = []
+                # set_filter_area_packer(scan_areas, filtertype=1)
+        else:
+            time.sleep(0.2)
 
 
 if __name__ == '__main__':
@@ -980,7 +1016,7 @@ if __name__ == '__main__':
     t = Thread(target = query_filter_area, args = (radar_sheet1, ))
     t.start()
 
-    t = Thread(target = filter_area_scan, args = (radar_sheet1, ))
+    t = Thread(target = filter_area_select, args = (radar_sheet1, ))
     t.start()
 
     # objects = [
@@ -1011,9 +1047,7 @@ if __name__ == '__main__':
     button_filter_query = tk_button(radar_tk_window, name = "area1 filter", text="area1 filter off", width=len("area1 filter off"), height=1, b_x = 540, b_y = 0, callback=area1_filter_button_callback)
     button_filter_query = tk_button(radar_tk_window, name = "area2 filter", text="area2 filter off", width=len("area2 filter off"), height=1, b_x = 670, b_y = 0, callback=area2_filter_button_callback)
     button_filter_query = tk_button(radar_tk_window, name = "area3 filter", text="area3 filter off", width=len("area3 filter off"), height=1, b_x = 800, b_y = 0, callback=area3_filter_button_callback)
-    button_filter_query = tk_button(radar_tk_window, name = "prev af", text="prev af", width=len("prev af"), height=1, b_x = 930, b_y = 0, callback=prev_af_button_callback)
-    button_filter_query = tk_button(radar_tk_window, name = "next af", text="next af", width=len("next af"), height=1, b_x = 1010, b_y = 0, callback=next_af_button_callback)
-    button_filter_query = tk_button(radar_tk_window, name = "radar rfs", text="radar rfs", width=len("radar rfs"), height=1, b_x = 1100, b_y = 0, callback=radar_rfs_button_callback)
+    button_filter_query = tk_button(radar_tk_window, name = "radar rfs", text="radar rfs", width=len("radar rfs"), height=1, b_x = 930, b_y = 0, callback=radar_rfs_button_callback)
     tk.mainloop()
 
     os._exit(0)
