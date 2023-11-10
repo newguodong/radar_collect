@@ -234,9 +234,9 @@ class radar_sheet():
         self.sheet_type = sheet_type
         self.radar_normal_angel = 90
         self.radar_theta = 120
-        self.radar_distance = 800
+        self.radar_distance = radar_distance
         self.sortnum = sortnum+1
-        self.radar_valid_dis = 600
+        self.radar_valid_dis = 800
 
         self.theta = np.pi*radar_normal_angel/180
         self.width = np.pi*radar_theta/180
@@ -319,8 +319,8 @@ class radar_sheet():
             # plt.gca().add_patch(plt.Rectangle(xy=(0, 36), width=72, height=108, edgecolor='green', fill=False, linewidth=2))
             # self.valid_dis = 600
 
-            rect_x_list = list(range(0-108, -520-108, -108))
-            rect_y_list = list(range(0, 600, 108))
+            rect_x_list = list(range(0-108, -800-108, -108))
+            rect_y_list = list(range(0, 800, 108))
 
             self.scan_rect_xy_list = []
 
@@ -329,7 +329,7 @@ class radar_sheet():
                     rect_xy_item = [rect_x, rect_y]
                     self.scan_rect_xy_list.append(rect_xy_item)
 
-            rect_x_list = list(range(0, 520, 108))
+            rect_x_list = list(range(0, 800, 108))
             for rect_x in rect_x_list:
                 for rect_y in rect_y_list:
                     rect_xy_item = [rect_x, rect_y]
@@ -1129,7 +1129,7 @@ if __name__ == '__main__':
     radar_tk_window = tk.Tk()
     radar_tk_window.title("radar collect tool")
 
-    radar_sheet1 = radar_sheet(radar_tk_window, "rect", 90, 120, 800, 36, 36)
+    radar_sheet1 = radar_sheet(radar_tk_window, "rect", 90, 120, 1000, 36, 36)
     plt.title('24GHz radar collect')
 
     radar_original_data = [
