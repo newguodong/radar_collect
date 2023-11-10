@@ -1,7 +1,9 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.colors as mcolors
 import random
+import math
 
 from socket import*
 from threading import Thread
@@ -34,6 +36,9 @@ next_af_msg_list = []
 radar_sheet_grid_list = []
 
 query_filter_area_msg_list = []
+
+radar_sheet_func_msg_list = []
+radar_sheet_msg_dict = {"sector":True}
 
 
 
@@ -134,6 +139,21 @@ def radar_rfs_button_callback():
 
     query_filter_area_msg_list.append(msg)
 
+def sector_button_callback():
+    print("sector button express once")
+    if radar_sheet_msg_dict["sector"] == True:
+        radar_sheet_msg_dict["sector"] = False
+        button_dict["radar sector"]["text"] = "sector off"
+        msg={}
+        msg["type"] = "sector hide"
+        radar_sheet_func_msg_list.append(msg)
+    else:
+        radar_sheet_msg_dict["sector"] = True
+        button_dict["radar sector"]["text"] = "sector on"
+        msg={}
+        msg["type"] = "sector show"
+        radar_sheet_func_msg_list.append(msg)
+
 class tk_button():
     def __init__(self, window, name, text, width, height, callback, b_x=0, b_y=0, b_anchor='s') -> None:
         self.window = window
@@ -207,6 +227,7 @@ class radar_sheet():
         self.radar_theta = 120
         self.radar_distance = 800
         self.sortnum = sortnum+1
+        self.radar_valid_dis = 600
 
         self.theta = np.pi*radar_normal_angel/180
         self.width = np.pi*radar_theta/180
@@ -252,6 +273,40 @@ class radar_sheet():
 
             self.ax_radar.grid(False,color='black',linestyle=':',linewidth=0.5)
 
+            # arc
+            arc = matplotlib.patches.Arc((0,0), self.radar_valid_dis*2, self.radar_valid_dis*2, angle=0, theta1=self.radar_normal_angel-self.radar_theta/2, theta2=self.radar_normal_angel+self.radar_theta/2, linestyle=':', color = "blue", linewidth = 1.5)
+            self.ax_radar.add_patch(arc)
+            self.radar_sector_arc = arc
+
+            self.ax_radar.plot(0, 0, 'o', picker=5, color="black", markersize = 12)
+
+            # start line
+            arc_start_line_angel_with_0 = (180-self.radar_theta)/2
+            arc_start_xy = Polar_to_Rectangular(self.radar_valid_dis, arc_start_line_angel_with_0)
+
+            x1, y1 = 0, 0
+            x2, y2 = arc_start_xy[0], arc_start_xy[1]
+
+
+            arc_start_line_x = np.linspace(x1, x2, 100)
+            arc_start_line_y = np.linspace(y1, y2, 100)
+
+            self.radar_sector_arc_start_line = self.ax_radar.plot(arc_start_line_x, arc_start_line_y, color = "blue", markersize = 1, linestyle=':')
+
+            # end line
+            arc_end_line_angel_with_0 = 180-(180-self.radar_theta)/2
+            arc_end_xy = Polar_to_Rectangular(self.radar_valid_dis, arc_end_line_angel_with_0)
+
+            x1, y1 = 0, 0
+            x2, y2 = arc_end_xy[0], arc_end_xy[1]
+
+
+            arc_end_line_x = np.linspace(x1, x2, 100)
+            arc_end_line_y = np.linspace(y1, y2, 100)
+
+            self.radar_sector_arc_end_line = self.ax_radar.plot(arc_end_line_x, arc_end_line_y, color = "blue", markersize = 1, linestyle=':')
+
+            self.radar_sector_valid = True
             # plt.gca().add_patch(plt.Rectangle(xy=(0, 36), width=72, height=108, edgecolor='green', fill=False, linewidth=2))
             # self.valid_dis = 600
 
@@ -338,6 +393,54 @@ class radar_sheet():
                 break
         self.rect_filter_new_area(name, sx, sy, ex, ey)
         pass
+
+    def show_sector(self):
+        if self.radar_sector_valid != True:
+            # arc
+            arc = matplotlib.patches.Arc((0,0), self.radar_valid_dis*2, self.radar_valid_dis*2, angle=0, theta1=self.radar_normal_angel-self.radar_theta/2, theta2=self.radar_normal_angel+self.radar_theta/2, linestyle=':', color = "blue", linewidth = 1.5)
+            self.ax_radar.add_patch(arc)
+            self.radar_sector_arc = arc
+
+            self.ax_radar.plot(0, 0, 'o', picker=5, color="black", markersize = 12)
+
+            # start line
+            arc_start_line_angel_with_0 = (180-self.radar_theta)/2
+            arc_start_xy = Polar_to_Rectangular(self.radar_valid_dis, arc_start_line_angel_with_0)
+
+            x1, y1 = 0, 0
+            x2, y2 = arc_start_xy[0], arc_start_xy[1]
+
+
+            arc_start_line_x = np.linspace(x1, x2, 100)
+            arc_start_line_y = np.linspace(y1, y2, 100)
+
+            self.radar_sector_arc_start_line = self.ax_radar.plot(arc_start_line_x, arc_start_line_y, color = "blue", markersize = 1, linestyle=':')
+
+            # end line
+            arc_end_line_angel_with_0 = 180-(180-self.radar_theta)/2
+            arc_end_xy = Polar_to_Rectangular(self.radar_valid_dis, arc_end_line_angel_with_0)
+
+            x1, y1 = 0, 0
+            x2, y2 = arc_end_xy[0], arc_end_xy[1]
+
+
+            arc_end_line_x = np.linspace(x1, x2, 100)
+            arc_end_line_y = np.linspace(y1, y2, 100)
+
+            self.radar_sector_arc_end_line = self.ax_radar.plot(arc_end_line_x, arc_end_line_y, color = "blue", markersize = 1, linestyle=':')
+        else:
+            print("radar sector already exist")
+
+    def hide_sector(self):
+        if self.radar_sector_valid == True:
+            try:
+                self.radar_sector_arc.remove()
+                self.radar_sector_arc_start_line.remove()
+                self.radar_sector_arc_end_line.remove()
+            except:
+                print("hide_sector error:", sys.exc_info()[0])
+            self.radar_sector_valid = False
+
 
 
 class radar_shot():
@@ -825,8 +928,8 @@ def Rectangular_to_Polar(x, y):  # 直角坐标转极坐标，输出的thata为�
 
 def Polar_to_Rectangular(r, theta):  # 极坐标转直角坐标，输入的thata需为角度值
     
-    x = r * np.cos(theta)
-    y = r * np.sin(theta)
+    x = r * np.cos(math.radians(theta))
+    y = r * np.sin(math.radians(theta))
     return round(x, 2), round(y, 2)
 
 def radar_computer_ld2450(data_in):
@@ -996,6 +1099,18 @@ def filter_area_select(radar_sheet):
         else:
             time.sleep(0.2)
 
+def filter_area_select(radar_sheet):
+    while True:
+        if len(radar_sheet_func_msg_list)>0:
+            msg = radar_sheet_func_msg_list.pop()
+            if msg["type"] == "sector show":
+                radar_sheet_msg_dict["sector"] = True
+                radar_sheet.show_sector()
+            elif msg["type"] == "sector hide":
+                radar_sheet_msg_dict["sector"] = False
+                radar_sheet.hide_sector()
+        else:
+            time.sleep(0.5)
 
 if __name__ == '__main__':
 
@@ -1014,6 +1129,9 @@ if __name__ == '__main__':
     t.start()
 
     t = Thread(target = query_filter_area, args = (radar_sheet1, ))
+    t.start()
+
+    t = Thread(target = filter_area_select, args = (radar_sheet1, ))
     t.start()
 
     t = Thread(target = filter_area_select, args = (radar_sheet1, ))
@@ -1048,6 +1166,7 @@ if __name__ == '__main__':
     button_filter_query = tk_button(radar_tk_window, name = "area2 filter", text="area2 filter off", width=len("area2 filter off"), height=1, b_x = 670, b_y = 0, callback=area2_filter_button_callback)
     button_filter_query = tk_button(radar_tk_window, name = "area3 filter", text="area3 filter off", width=len("area3 filter off"), height=1, b_x = 800, b_y = 0, callback=area3_filter_button_callback)
     button_filter_query = tk_button(radar_tk_window, name = "radar rfs", text="radar rfs", width=len("radar rfs"), height=1, b_x = 930, b_y = 0, callback=radar_rfs_button_callback)
+    button_filter_query = tk_button(radar_tk_window, name = "radar sector", text="sector on", width=len("sector on"), height=1, b_x = 1100, b_y = 0, callback=sector_button_callback)
     tk.mainloop()
 
     os._exit(0)
