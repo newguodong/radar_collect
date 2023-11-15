@@ -42,6 +42,8 @@ radar_sheet_msg_dict = {"sector":True}
 
 filter_scan_func_msg_list = []
 
+cur_shots_list = []
+
 
 
 def exit_button_callback():
@@ -1110,7 +1112,7 @@ def radar_data_analyse(data_in, data_out):
                     radar_data_list = radar_computer_ld2450(data_in_1)
                     for i_data in radar_data_list:
                         data_out.append(i_data)
-
+                        cur_shots_list.append(radar_data_list)
                     # print(f"data_out={data_out}")
             else:
                 time.sleep(0.2)
@@ -1240,7 +1242,7 @@ def filter_area_select(radar_sheet):
         else:
             time.sleep(0.2)
 
-def filter_scan_func(radar_sheet):
+def filter_scan_func(radar_sheet, statistics):
     while True:
         if len(filter_scan_func_msg_list)>0:
             msg = filter_scan_func_msg_list.pop()
@@ -1264,14 +1266,47 @@ def filter_scan_func(radar_sheet):
                         filter_areas_data_json = json.load(f)
                 except:
                     print("ignore")
+                
+                scan_data = {}
+                scan_data["total shots"] = 0
+                scan_data["data"] = []
+                once_total_shots = 0
                 for item in filter_areas_data_json:
                     radar_sheet.rect_filter_move_cur_filter("test_scan", item[0], item[1], item[2], item[3])
                     scan_areas = []
                     scan_areas.append(item)
                     set_filter_area_packer(scan_areas, filtertype=1)
+                    # ------------------------------
+                    scan_data_item = {}
+                    scan_data_item["filter_area"] = item
+                    cur_shots_list.clear()
+                    time.sleep(15)
+                    rect_xy13 = []
+                    rect_xy13.append(item[0])
+                    rect_xy13.append(item[1])
+                    rect_xy13.append(item[2])
+                    rect_xy13.append(item[3])
+                    max_shots = 0
+                    for item in cur_shots_list:
+                        shot_counter = 0
+                        for i_item in item:
+                            if is_point_in_rect(i_item["rect_x"], i_item["rect_y"], rect_xy13):
+                                shot_counter+=1
+                        if shot_counter>max_shots:
+                            max_shots = shot_counter
+                    cur_shots_list.clear()
+                    scan_data_item["total_shots"] = max_shots
+                    once_total_shots += scan_data_item["total_shots"]
+                    scan_data["data"].append(scan_data_item)
+                    print(f'scan_data["data"]={scan_data["data"]}')
+                    # ------------------------------
                     time.sleep(1)
+                scan_data["total shots"] = once_total_shots
+                statistics.append(scan_data)
+                print(f"statistics={statistics}")
                 radar_sheet.rect_filter_move_show_track("test_scan", 0, 0, 0, 0)
         else:
+            cur_shots_list.clear()
             time.sleep(0.5)
 
 
@@ -1308,13 +1343,32 @@ if __name__ == '__main__':
     t = Thread(target = query_filter_area, args = (radar_sheet1, ))
     t.start()
 
+    statistics = [
+        {
+            "total shots": 1,
+            "data": [
+                {"filter_area":[0, 1, 2, 3], "total_shots":0},
+                {"filter_area":[4, 5, 6, 7], "total_shots":1}
+            ],
+        },
+        {
+            "total shots": 2,
+            "data": [
+                {"filter_area":[0, 1, 2, 3], "total_shots":1},
+                {"filter_area":[4, 5, 6, 7], "total_shots":1}
+            ],
+        },
+    ]
+
+    statistics = []
+
     t = Thread(target = filter_area_select, args = (radar_sheet1, ))
     t.start()
 
     t = Thread(target = radar_sheet_func, args = (radar_sheet1, ))
     t.start()
 
-    t = Thread(target = filter_scan_func, args = (radar_sheet1, ))
+    t = Thread(target = filter_scan_func, args = (radar_sheet1, statistics))
     t.start()
 
     # objects = [
