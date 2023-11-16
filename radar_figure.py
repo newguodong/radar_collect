@@ -24,7 +24,7 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MultipleLocator
 
 
-button_state_list = {"exit":False, "json record":False, "scan mode":"multi", "area1 filter":False, "area2 filter":False, "area3 filter":False, "fsm":"off"}
+button_state_list = {"exit":False, "json record":False, "scan mode":"multi", "area1 filter":False, "area2 filter":False, "area3 filter":False, "fsm":"off", "scan":False}
 button_dict = {}
 
 sendmsglist=[]
@@ -41,6 +41,8 @@ radar_sheet_func_msg_list = []
 radar_sheet_msg_dict = {"sector":True}
 
 filter_scan_func_msg_list = []
+
+filter_scan_func_exit_msg_list = []
 
 cur_shots_list = []
 
@@ -185,6 +187,29 @@ def scan_track_plus_button_callback():
     msg["scan_type"] = "period"
     filter_scan_func_msg_list.append(msg)
 
+def pause_scan_button_callback():
+    print("pause scan button express once")
+    if button_state_list["scan"] == True:
+        button_state_list["scan"] = False
+        button_dict["pause scan"]["text"] = "pause scan"
+    else:
+        button_state_list["scan"] = True
+        button_dict["pause scan"]["text"] = "scanning"
+
+def sync_pause_scan_button(new_state):
+    if new_state == True:
+        button_state_list["scan"] = True
+        button_dict["pause scan"]["text"] = "scanning"
+    else:
+        button_state_list["scan"] = False
+        button_dict["pause scan"]["text"] = "pause scan"
+
+def exit_scan_button_callback():
+    msg={}
+    msg["type"] = "exit scan"
+    if len(filter_scan_func_exit_msg_list)==0:
+        filter_scan_func_exit_msg_list.append(msg)
+
 def sector_button_callback():
     print("sector button express once")
     if radar_sheet_msg_dict["sector"] == True:
@@ -250,21 +275,20 @@ def is_point_in_rect(x, y, rect):
 def onclick(event):
     # print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %(event.button, event.x, event.y, event.xdata, event.ydata))
     # print(len(radar_sheet_grid_list))
-    for item in radar_sheet_grid_list:
-        rect_xy13 = []
-        rect_xy13.append(item["x1y1"][0])
-        rect_xy13.append(item["x1y1"][1])
-        rect_xy13.append(item["x3y3"][0])
-        rect_xy13.append(item["x3y3"][1])
-        if is_point_in_rect(event.xdata, event.ydata, rect_xy13):
-            msg={}
-            msg["type"] = "any"
-            msg["posi"] = item
-            # print(msg)
-            next_af_msg_list.append(msg)
-            break
-            
-    
+    if event.xdata!=None and event.ydata!=None:
+        for item in radar_sheet_grid_list:
+            rect_xy13 = []
+            rect_xy13.append(item["x1y1"][0])
+            rect_xy13.append(item["x1y1"][1])
+            rect_xy13.append(item["x3y3"][0])
+            rect_xy13.append(item["x3y3"][1])
+            if is_point_in_rect(event.xdata, event.ydata, rect_xy13):
+                msg={}
+                msg["type"] = "any"
+                msg["posi"] = item
+                # print(msg)
+                next_af_msg_list.append(msg)
+                break
 
 class radar_sheet():
     def __init__(self, radar_tk_window, sheet_type, radar_normal_angel, radar_theta, radar_distance, sortnum, dis_reso) -> None:
@@ -417,6 +441,29 @@ class radar_sheet():
             self.statistics_label = tk.Label(self.tk_window, text=self.statistics_label_default,width=1,height=5,padx=200, pady=2, borderwidth=1, fg='blue')
             self.statistics_label.pack(padx = self.win_screen_width/2, pady = 10, anchor = 'w')
 
+
+            self.set_scan_interval_time_frame = tk.Frame (self.tk_window)
+
+            #创建一个Label控件
+            self.set_scan_label = tk.Label (self.set_scan_interval_time_frame)
+            #创建一个Entry控件
+            self.set_scan_entry = tk.Entry (self.set_scan_interval_time_frame)
+            #读取用户输入的表达式
+            self.set_scan_expression = tk.StringVar ()
+            #将用户输入的表达式显示在Entry控件上
+            self.set_scan_entry ["textvariable"] = self.set_scan_expression
+            #创建-一个 Button控件.当用户输入完毕后，单击此按钮即计算表达式的结果
+            self.scan_interval_time = 10
+            self.set_scan_button = tk.Button (self.set_scan_interval_time_frame, text="set:"+str(self.scan_interval_time),command=self.set_scan_func)
+
+            self.set_scan_entry.focus ()
+            self.set_scan_interval_time_frame.pack ()
+            #Entry控件位于窗体的上方
+            self.set_scan_entry .pack(side="left")
+            #Label控件位于窗体的左方
+            self.set_scan_label .pack (side="left")
+            #Button控件位于窗体的右方
+            self.set_scan_button.pack (side="right")
         
 
         # 将 matplotlib 图形嵌入到 tkinter 窗口中
@@ -425,6 +472,19 @@ class radar_sheet():
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         pass
+    
+    def set_scan_func(self):
+        print("set_scan_func")
+        input_str = self.set_scan_expression.get()
+        input_int = 0
+        try:
+            input_int = int(input_str)
+        except:
+            print("Unexpected error:", sys.exc_info()[0])
+        else:
+            self.scan_interval_time = input_int
+            self.set_scan_button["text"] = "set:"+str(self.scan_interval_time)
+        print(f"self.scan_interval_time={self.scan_interval_time}")
 
     def rect_filter_new_area(self, name, sx, sy, ex, ey, ec, fc, alpha, fill, linewidth):
         # print("rect_filter_new_area")
@@ -1126,7 +1186,9 @@ def radar_data_analyse(data_in, data_out):
                     radar_data_list = radar_computer_ld2450(data_in_1)
                     for i_data in radar_data_list:
                         data_out.append(i_data)
-                        cur_shots_list.append(radar_data_list)
+
+                        if button_state_list["scan"]==True:
+                            cur_shots_list.append(radar_data_list)
                     # print(f"data_out={data_out}")
             else:
                 time.sleep(0.2)
@@ -1239,7 +1301,8 @@ def filter_area_select(radar_sheet):
                         json.dump(filter_areas_data_json, f, indent=4)
                     pass
                 elif button_state_list["fsm"] == "off":
-                    print("off")
+                    # print("off")
+                    pass
 
             elif msg["type"] == "cfsm clear":
                 print("cfsm clear")
@@ -1261,6 +1324,7 @@ def filter_scan_func(radar_sheet, statistics):
     total_shots_min = 0
     total_shots_max = 0
     total_shots_avg = 0
+    exit_scan_mark = False
     while True:
         if len(filter_scan_func_msg_list)>0:
             msg = filter_scan_func_msg_list.pop()
@@ -1277,6 +1341,7 @@ def filter_scan_func(radar_sheet, statistics):
                     time.sleep(1)
                 radar_sheet.rect_filter_move_show_track("show track", 0, 0, 0, 0)
             if msg["type"] == "scan track":
+                exit_scan_mark = False
                 while True:
                     print("scan track")
                     filter_areas_data_json = []
@@ -1286,12 +1351,20 @@ def filter_scan_func(radar_sheet, statistics):
                     except:
                         print("ignore")
                     
+                    if len(filter_areas_data_json)==0:
+                        print("len(filter_areas_data_json)==0, break")
+                        break
+
+                    sync_pause_scan_button(True)
+                    
                     scan_data = {}
                     localtime = time.localtime()
                     localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
                     
-                    statistics_data_path = "data/radardata/statistics_data"+"_"+localtimestr+".json"
-                    scan_data["time"]=localtimestr
+                    statistics_data_path = "data/radardata/statistics_data"+"_"+re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))+"_"+re.sub('[:]', '_', str(time.strftime("%H:%M:%S", localtime)))+".json"
+                    scan_data["start_time"]=localtimestr
+                    scan_data["end_time"]="-"
+                    scan_data["time_use"]="-"
                     scan_data["total shots"] = 0
                     scan_data["data"] = []
                     once_total_shots = 0
@@ -1303,7 +1376,11 @@ def filter_scan_func(radar_sheet, statistics):
                     show_label = radar_sheet.statistics_label_default
                     radar_sheet.statistics_label.config(text = show_label)
                     statistics.clear()
+                    once_scan_start_timestamp = int(time.time())
                     for item in filter_areas_data_json:
+                        while button_state_list["scan"]==False:
+                            print("scan pause")
+                            time.sleep(1)
                         radar_sheet.rect_filter_move_cur_filter("test_scan", item[0], item[1], item[2], item[3])
                         scan_areas = []
                         scan_areas.append(item)
@@ -1312,10 +1389,13 @@ def filter_scan_func(radar_sheet, statistics):
                         scan_data_item = {}
                         localtime = time.localtime()
                         localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
-                        scan_data_item["time"]=localtimestr
+                        scan_data_item["start_time"]=localtimestr
+                        scan_data_item["end_time"]="-"
+                        scan_data_item["time_use"] = "-"
                         scan_data_item["filter_area"] = item
+                        scan_data_item_start_timestamp = int(time.time())
                         cur_shots_list.clear()
-                        time.sleep(15)
+                        time.sleep(radar_sheet.scan_interval_time)
                         rect_xy13 = []
                         rect_xy13.append(item[0])
                         rect_xy13.append(item[1])
@@ -1331,12 +1411,27 @@ def filter_scan_func(radar_sheet, statistics):
                                 max_shots = shot_counter
                         cur_shots_list.clear()
                         scan_data_item["total_shots"] = max_shots
+                        localtime = time.localtime()
+                        localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
+                        scan_data_item["end_time"]=localtimestr
                         once_total_shots += scan_data_item["total_shots"]
+                        scan_data_item_end_timestamp = int(time.time())
+                        scan_data_item["time_use"] = scan_data_item_end_timestamp - scan_data_item_start_timestamp
                         scan_data["data"].append(scan_data_item)
                         print(f'scan_data["data"]={scan_data["data"]}')
                         # ------------------------------
                         time.sleep(1)
+                        if len(filter_scan_func_exit_msg_list) > 0:
+                            exit_msg = filter_scan_func_exit_msg_list.pop()
+                            if exit_msg["type"] == "exit scan":
+                                exit_scan_mark = True
+                                break
                     scan_data["total shots"] = once_total_shots
+                    localtime = time.localtime()
+                    localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
+                    scan_data["end_time"]=localtimestr
+                    once_scan_end_timestamp = int(time.time())
+                    scan_data["time_use"] = once_scan_end_timestamp-once_scan_start_timestamp
                     statistics.append(scan_data)
                     print(f"statistics={statistics}")
                     with open(statistics_data_path, 'w') as f:
@@ -1363,14 +1458,20 @@ def filter_scan_func(radar_sheet, statistics):
 
                     try:
                         if msg["scan_type"]=="period":
+                            
+                            if exit_scan_mark == True:
+                                print("exit scan")
+                                break
                             print("period scan...")
                             pass
                         else:
                             statistics.clear()
+                            sync_pause_scan_button(False)
                             print("scan once, break")
                             break
                     except(KeyError):
                         statistics.clear()
+                        sync_pause_scan_button(False)
                         print("KeyError, break")
                         break
                     
@@ -1420,19 +1521,23 @@ if __name__ == '__main__':
 
     statistics = [
         {
-            "time":"2023-11-16:00:00:00",
+            "start_time":"2023-11-16:00:00:00",
+            "end_time":"2023-11-16:00:00:00",
+            "time_use":100,
             "total shots": 1,
             "data": [
-                {"time":"2023-11-16:00:00:00", "filter_area":[0, 1, 2, 3], "total_shots":0},
-                {"time":"2023-11-16:00:00:00", "filter_area":[4, 5, 6, 7], "total_shots":1}
+                {"start_time":"2023-11-16:00:00:00", "end_time":"2023-11-16:00:00:00", "time_use":10, "filter_area":[0, 1, 2, 3], "total_shots":0},
+                {"start_time":"2023-11-16:00:00:00", "end_time":"2023-11-16:00:00:00", "time_use":10, "filter_area":[4, 5, 6, 7], "total_shots":1}
             ],
         },
         {
-            "time":"2023-11-16:00:00:00",
+            "start_time":"2023-11-16:00:00:00",
+            "end_time":"2023-11-16:00:00:00",
+            "time_use":100,
             "total shots": 2,
             "data": [
-                {"time":"2023-11-16:00:00:00", "filter_area":[0, 1, 2, 3], "total_shots":1},
-                {"time":"2023-11-16:00:00:00", "filter_area":[4, 5, 6, 7], "total_shots":1}
+                {"start_time":"2023-11-16:00:00:00", "end_time":"2023-11-16:00:00:00", "time_use":10, "filter_area":[0, 1, 2, 3], "total_shots":1},
+                {"start_time":"2023-11-16:00:00:00", "end_time":"2023-11-16:00:00:00", "time_use":10, "filter_area":[4, 5, 6, 7], "total_shots":1}
             ],
         },
     ]
@@ -1483,6 +1588,8 @@ if __name__ == '__main__':
     tk_button(radar_tk_window, name = "show trace", text="show trace", width=len("show trace"), height=1, b_x = 1320, b_y = 0, callback=show_track_button_callback)
     tk_button(radar_tk_window, name = "scan trace", text="scan trace", width=len("scan trace"), height=1, b_x = 1400, b_y = 0, callback=scan_track_button_callback)
     tk_button(radar_tk_window, name = "scan trace+", text="scan trace+", width=len("scan trace+"), height=1, b_x = 1490, b_y = 0, callback=scan_track_plus_button_callback)
+    tk_button(radar_tk_window, name = "pause scan", text="pause scan", width=len("pause scan"), height=1, b_x = 1580, b_y = 0, callback=pause_scan_button_callback)
+    tk_button(radar_tk_window, name = "exit scan", text="exit scan", width=len("exit scan"), height=1, b_x = 1660, b_y = 0, callback=exit_scan_button_callback)
     tk.mainloop()
 
     os._exit(0)
