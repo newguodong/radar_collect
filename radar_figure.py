@@ -46,6 +46,10 @@ filter_scan_func_exit_msg_list = []
 
 cur_shots_list = []
 
+DynamicPlotThread_msg_list = []
+
+DynamicPlotThread_state_dict = {"draw shot":True}
+
 
 
 def exit_button_callback():
@@ -453,7 +457,7 @@ class radar_sheet():
             #将用户输入的表达式显示在Entry控件上
             self.set_scan_entry ["textvariable"] = self.set_scan_expression
             #创建-一个 Button控件.当用户输入完毕后，单击此按钮即计算表达式的结果
-            self.scan_interval_time = 10
+            self.scan_interval_time = 5
             self.set_scan_button = tk.Button (self.set_scan_interval_time_frame, text="set:"+str(self.scan_interval_time),command=self.set_scan_func)
 
             self.set_scan_entry.focus ()
@@ -608,19 +612,25 @@ class radar_sheet():
             except:
                 print("hide_sector error:", sys.exc_info()[0])
             self.radar_sector_valid = False
+    def save_fig(self, path):
+        plt.savefig(path)
 
 
 
 class radar_shot():
-    def __init__(self, radar_sheet, polar_theta=0, polar_r=0, rectx=0, recty=0) -> None:
+    def __init__(self, radar_sheet, polar_theta=0, polar_r=0, rectx=0, recty=0, shot_type="act shot") -> None:
         self.rectx = rectx
         self.recty = recty
         self.polar_theta = polar_theta
         self.polar_r = polar_r
+        self.shot_type = shot_type
 
         colors=list(mcolors.TABLEAU_COLORS.keys())
         # self.color = 'red'
-        self.color = mcolors.TABLEAU_COLORS[colors[random.randint(0, len(colors)-1)]]
+        if self.shot_type == "act shot":
+            self.color = mcolors.TABLEAU_COLORS[colors[random.randint(0, len(colors)-1)]]
+        elif self.shot_type == "mark shot":
+            self.color = "black"
 
         self.ax = radar_sheet.ax_radar
         self.radar_sheet = radar_sheet
@@ -725,15 +735,31 @@ class DynamicPlotThread(Thread):
             #         if ishot["shot time"]<1:
             #             print(ishot)
             #     print("")
-            self.radar_sheet.fig.canvas.draw()
-            time.sleep(0.5)
+            
+            
             for ishot in self.shots:
                 if ishot["shot status"]==1:
                     ishot["shot time"] += 1
                     if ishot["shot time"] >= 3:
-                        # ishot["shot time"] = 0
+                        ishot["shot time"] = 0
                         ishot["shot status"] = 0
                         ishot["shot shot"].del_shot()
+            
+            if len(DynamicPlotThread_msg_list)>0:
+                msg = DynamicPlotThread_msg_list.pop()
+                if msg["type"] == "clear all shots":
+                    for ishot in self.shots:
+                        if ishot["shot status"]==1:
+                                ishot["shot time"] = 0
+                                ishot["shot status"] = 0
+                                ishot["shot shot"].del_shot()
+            
+            self.radar_sheet.fig.canvas.draw()
+
+            while DynamicPlotThread_state_dict["draw shot"]==False:
+                time.sleep(0.5)
+
+            time.sleep(0.5)
 
 
 
@@ -1368,6 +1394,7 @@ def filter_scan_func(radar_sheet, statistics):
                     localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
                     
                     statistics_data_path = "data/radardata/statistics_data"+"_"+re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))+"_"+re.sub('[:]', '_', str(time.strftime("%H:%M:%S", localtime)))+".json"
+                    statistics_data_pic_path = "data/radardata/statistics_data_pic"+"_"+re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))+"_"+re.sub('[:]', '_', str(time.strftime("%H:%M:%S", localtime)))+".png"
                     scan_data["start_time"]=localtimestr
                     scan_data["end_time"]="-"
                     scan_data["time_use"]="-"
@@ -1377,6 +1404,8 @@ def filter_scan_func(radar_sheet, statistics):
 
                     statistics.clear()
                     once_scan_start_timestamp = int(time.time())
+
+                    show_shots_mark_list = []
                     for item in filter_areas_data_json:
                         while button_state_list["scan"]==False:
                             print("scan pause")
@@ -1402,13 +1431,26 @@ def filter_scan_func(radar_sheet, statistics):
                         rect_xy13.append(item[2])
                         rect_xy13.append(item[3])
                         max_shots = 0
+                        print(f"cur_shots_list={cur_shots_list}")
+                        
+                        show_shots_mark = []
                         for item in cur_shots_list:
                             shot_counter = 0
                             for i_item in item:
                                 if is_point_in_rect(i_item["rect_x"], i_item["rect_y"], rect_xy13):
                                     shot_counter+=1
-                            if shot_counter>max_shots:
-                                max_shots = shot_counter
+                                if shot_counter>max_shots:
+                                    max_shots = shot_counter
+                                    show_shots_mark.append(i_item)
+                                    
+                        
+                        for item in show_shots_mark:
+                            shot_mark = radar_shot(radar_sheet, item["polar_theta"], item["polar_r"], item["rect_x"], item["rect_y"], shot_type="mark shot")
+                            show_shots_mark_list.append(shot_mark)
+                        show_shots_mark.clear()
+                        print(f"len(show_shots_mark_list)={len(show_shots_mark_list)}")
+                        print(f"show_shots_mark_list={show_shots_mark_list}")
+
                         cur_shots_list.clear()
                         scan_data_item["total_shots"] = max_shots
                         localtime = time.localtime()
@@ -1457,7 +1499,7 @@ def filter_scan_func(radar_sheet, statistics):
                     if once_total_shots > total_shots_max:
                         total_shots_max = once_total_shots
                     
-                    total_shots_total = 0
+                    total_shots_total = 0.0
                     for item in statistics:
                         total_shots_total += item["total shots"]
                     total_shots_avg = total_shots_total/len(statistics)
@@ -1469,6 +1511,19 @@ def filter_scan_func(radar_sheet, statistics):
                                 total_avg_str
                     
                     radar_sheet.statistics_label.config(text = show_label)
+                    DynamicPlotThread_state_dict["draw shot"] = False
+                    clear_shot_msg = {}
+                    clear_shot_msg["type"] = "clear all shots"
+                    DynamicPlotThread_msg_list.append(clear_shot_msg)
+                    time.sleep(3)
+                    radar_sheet.save_fig(statistics_data_pic_path)
+                    time.sleep(1)
+
+                    DynamicPlotThread_state_dict["draw shot"] = True
+
+                    for item in show_shots_mark_list:
+                        item.del_shot()
+                    show_shots_mark_list.clear()
 
                     try:
                         if msg["scan_type"]=="period":
