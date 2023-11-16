@@ -176,6 +176,13 @@ def show_track_button_callback():
 def scan_track_button_callback():
     msg={}
     msg["type"] = "scan track"
+    msg["scan_type"] = "once"
+    filter_scan_func_msg_list.append(msg)
+
+def scan_track_plus_button_callback():
+    msg={}
+    msg["type"] = "scan track"
+    msg["scan_type"] = "period"
     filter_scan_func_msg_list.append(msg)
 
 def sector_button_callback():
@@ -402,6 +409,13 @@ class radar_sheet():
             test_scan.remove()
 
             self.rect_filters = []
+
+            self.win_screen_high = radar_tk_window.winfo_screenheight()
+            self.win_screen_width = radar_tk_window.winfo_screenwidth()
+
+            self.statistics_label_default = "cover_count=--, total_min:--, total_max:--, total_avg:--"
+            self.statistics_label = tk.Label(self.tk_window, text=self.statistics_label_default,width=1,height=5,padx=200, pady=2, borderwidth=1, fg='blue')
+            self.statistics_label.pack(padx = self.win_screen_width/2, pady = 10, anchor = 'w')
 
         
 
@@ -1243,6 +1257,10 @@ def filter_area_select(radar_sheet):
             time.sleep(0.2)
 
 def filter_scan_func(radar_sheet, statistics):
+    cover_count = 0
+    total_shots_min = 0
+    total_shots_max = 0
+    total_shots_avg = 0
     while True:
         if len(filter_scan_func_msg_list)>0:
             msg = filter_scan_func_msg_list.pop()
@@ -1259,52 +1277,104 @@ def filter_scan_func(radar_sheet, statistics):
                     time.sleep(1)
                 radar_sheet.rect_filter_move_show_track("show track", 0, 0, 0, 0)
             if msg["type"] == "scan track":
-                print("scan track")
-                filter_areas_data_json = []
-                try:
-                    with open('data/radardata/filter_areas_data.json', 'r') as f:
-                        filter_areas_data_json = json.load(f)
-                except:
-                    print("ignore")
-                
-                scan_data = {}
-                scan_data["total shots"] = 0
-                scan_data["data"] = []
-                once_total_shots = 0
-                for item in filter_areas_data_json:
-                    radar_sheet.rect_filter_move_cur_filter("test_scan", item[0], item[1], item[2], item[3])
-                    scan_areas = []
-                    scan_areas.append(item)
-                    set_filter_area_packer(scan_areas, filtertype=1)
-                    # ------------------------------
-                    scan_data_item = {}
-                    scan_data_item["filter_area"] = item
-                    cur_shots_list.clear()
-                    time.sleep(15)
-                    rect_xy13 = []
-                    rect_xy13.append(item[0])
-                    rect_xy13.append(item[1])
-                    rect_xy13.append(item[2])
-                    rect_xy13.append(item[3])
-                    max_shots = 0
-                    for item in cur_shots_list:
-                        shot_counter = 0
-                        for i_item in item:
-                            if is_point_in_rect(i_item["rect_x"], i_item["rect_y"], rect_xy13):
-                                shot_counter+=1
-                        if shot_counter>max_shots:
-                            max_shots = shot_counter
-                    cur_shots_list.clear()
-                    scan_data_item["total_shots"] = max_shots
-                    once_total_shots += scan_data_item["total_shots"]
-                    scan_data["data"].append(scan_data_item)
-                    print(f'scan_data["data"]={scan_data["data"]}')
-                    # ------------------------------
-                    time.sleep(1)
-                scan_data["total shots"] = once_total_shots
-                statistics.append(scan_data)
-                print(f"statistics={statistics}")
-                radar_sheet.rect_filter_move_show_track("test_scan", 0, 0, 0, 0)
+                while True:
+                    print("scan track")
+                    filter_areas_data_json = []
+                    try:
+                        with open('data/radardata/filter_areas_data.json', 'r') as f:
+                            filter_areas_data_json = json.load(f)
+                    except:
+                        print("ignore")
+                    
+                    scan_data = {}
+                    localtime = time.localtime()
+                    localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
+                    
+                    statistics_data_path = "data/radardata/statistics_data"+"_"+localtimestr+".json"
+                    scan_data["time"]=localtimestr
+                    scan_data["total shots"] = 0
+                    scan_data["data"] = []
+                    once_total_shots = 0
+
+                    cover_count = 0
+                    total_shots_min = 0
+                    total_shots_max = 0
+                    total_shots_avg = 0
+                    show_label = radar_sheet.statistics_label_default
+                    radar_sheet.statistics_label.config(text = show_label)
+                    statistics.clear()
+                    for item in filter_areas_data_json:
+                        radar_sheet.rect_filter_move_cur_filter("test_scan", item[0], item[1], item[2], item[3])
+                        scan_areas = []
+                        scan_areas.append(item)
+                        set_filter_area_packer(scan_areas, filtertype=1)
+                        # ------------------------------
+                        scan_data_item = {}
+                        localtime = time.localtime()
+                        localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
+                        scan_data_item["time"]=localtimestr
+                        scan_data_item["filter_area"] = item
+                        cur_shots_list.clear()
+                        time.sleep(15)
+                        rect_xy13 = []
+                        rect_xy13.append(item[0])
+                        rect_xy13.append(item[1])
+                        rect_xy13.append(item[2])
+                        rect_xy13.append(item[3])
+                        max_shots = 0
+                        for item in cur_shots_list:
+                            shot_counter = 0
+                            for i_item in item:
+                                if is_point_in_rect(i_item["rect_x"], i_item["rect_y"], rect_xy13):
+                                    shot_counter+=1
+                            if shot_counter>max_shots:
+                                max_shots = shot_counter
+                        cur_shots_list.clear()
+                        scan_data_item["total_shots"] = max_shots
+                        once_total_shots += scan_data_item["total_shots"]
+                        scan_data["data"].append(scan_data_item)
+                        print(f'scan_data["data"]={scan_data["data"]}')
+                        # ------------------------------
+                        time.sleep(1)
+                    scan_data["total shots"] = once_total_shots
+                    statistics.append(scan_data)
+                    print(f"statistics={statistics}")
+                    with open(statistics_data_path, 'w') as f:
+                            json.dump(statistics, f, indent=4)
+                    radar_sheet.rect_filter_move_show_track("test_scan", 0, 0, 0, 0)
+
+                    cover_count+=1
+                    if once_total_shots < total_shots_min:
+                        total_shots_min = once_total_shots
+                    if once_total_shots > total_shots_max:
+                        total_shots_max = once_total_shots
+                    
+                    total_shots_total = 0
+                    for item in statistics:
+                        total_shots_total += item["total shots"]
+                    total_shots_avg = total_shots_total/len(statistics)
+
+                    show_label = "cover_count="+str(cover_count)+", " + \
+                                "total_min="+str(total_shots_min)+", " + \
+                                "total_max="+str(total_shots_max)+", " + \
+                                "total_avg="+str(total_shots_avg)
+                    
+                    radar_sheet.statistics_label.config(text = show_label)
+
+                    try:
+                        if msg["scan_type"]=="period":
+                            print("period scan...")
+                            pass
+                        else:
+                            statistics.clear()
+                            print("scan once, break")
+                            break
+                    except(KeyError):
+                        statistics.clear()
+                        print("KeyError, break")
+                        break
+                    
+
         else:
             cur_shots_list.clear()
             time.sleep(0.5)
@@ -1330,6 +1400,11 @@ if __name__ == '__main__':
     radar_tk_window = tk.Tk()
     radar_tk_window.title("radar collect tool")
 
+    win_screen_high = radar_tk_window.winfo_screenheight()
+    win_screen_width = radar_tk_window.winfo_screenwidth()
+    screen_size_str = str(int(win_screen_width/2))+"x"+str(int(win_screen_high/2))
+    radar_tk_window.geometry(screen_size_str)
+
     radar_sheet1 = radar_sheet(radar_tk_window, "rect", 90, 120, 1000, 36, 36)
     plt.title('24GHz radar collect')
 
@@ -1345,17 +1420,19 @@ if __name__ == '__main__':
 
     statistics = [
         {
+            "time":"2023-11-16:00:00:00",
             "total shots": 1,
             "data": [
-                {"filter_area":[0, 1, 2, 3], "total_shots":0},
-                {"filter_area":[4, 5, 6, 7], "total_shots":1}
+                {"time":"2023-11-16:00:00:00", "filter_area":[0, 1, 2, 3], "total_shots":0},
+                {"time":"2023-11-16:00:00:00", "filter_area":[4, 5, 6, 7], "total_shots":1}
             ],
         },
         {
+            "time":"2023-11-16:00:00:00",
             "total shots": 2,
             "data": [
-                {"filter_area":[0, 1, 2, 3], "total_shots":1},
-                {"filter_area":[4, 5, 6, 7], "total_shots":1}
+                {"time":"2023-11-16:00:00:00", "filter_area":[0, 1, 2, 3], "total_shots":1},
+                {"time":"2023-11-16:00:00:00", "filter_area":[4, 5, 6, 7], "total_shots":1}
             ],
         },
     ]
@@ -1405,6 +1482,7 @@ if __name__ == '__main__':
     tk_button(radar_tk_window, name = "cfsm", text="dfsm", width=len("cfsm"), height=1, b_x = 1280, b_y = 0, callback=cfsm_button_callback)
     tk_button(radar_tk_window, name = "show trace", text="show trace", width=len("show trace"), height=1, b_x = 1320, b_y = 0, callback=show_track_button_callback)
     tk_button(radar_tk_window, name = "scan trace", text="scan trace", width=len("scan trace"), height=1, b_x = 1400, b_y = 0, callback=scan_track_button_callback)
+    tk_button(radar_tk_window, name = "scan trace+", text="scan trace+", width=len("scan trace+"), height=1, b_x = 1490, b_y = 0, callback=scan_track_plus_button_callback)
     tk.mainloop()
 
     os._exit(0)
