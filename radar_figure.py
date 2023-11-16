@@ -895,8 +895,8 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                             read_len += len(radar_data_frame)
                             
                         else:
-                            print("radar_data_frame len error")
-                            print(f"len(radar_data_frame)={len(radar_data_frame)}")
+                            # print("radar_data_frame len error")
+                            # print(f"len(radar_data_frame)={len(radar_data_frame)}")
                             read_posi = len(rcv_buf)
                             # while True:
                             #     time.sleep(1)
@@ -928,21 +928,21 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                             read_len += len(radar_cmd_frame)
 
                         elif radar_cmd_head_posi == -1:
-                            print("radar_cmd_head_posi error")
+                            # print("radar_cmd_head_posi error")
                             read_posi = len(rcv_buf)
                             break
                         elif radar_cmd_frame_tail == -1:
-                            print("cmd continue recv...\n")
+                            # print("cmd continue recv...\n")
                             break
                         else:
                             print("cmd other\n")
 
                     elif radar_head_posi == -1:
-                        print("radar_head_posi error")
+                        # print("radar_head_posi error")
                         read_posi = len(rcv_buf)
                         break
                     elif radar_tail_posi == -1:
-                        print("continue recv...\n")
+                        # print("continue recv...\n")
                         break
                     else:
                         print("other\n")
@@ -1201,7 +1201,7 @@ def query_filter_area(radar_sheet):
     while True:
         if len(radar_msg_list) > 0:
             radar_cmd_msg = radar_msg_list.pop()
-            print(f"radar_cmd_msg={radar_cmd_msg}")
+            # print(f"radar_cmd_msg={radar_cmd_msg}")
 
             radar_cmd_msg_bytes = bytes(radar_cmd_msg)
 
@@ -1325,6 +1325,7 @@ def filter_scan_func(radar_sheet, statistics):
     total_shots_max = 0
     total_shots_avg = 0
     exit_scan_mark = False
+    total_avg_str = "--"
     while True:
         if len(filter_scan_func_msg_list)>0:
             msg = filter_scan_func_msg_list.pop()
@@ -1342,6 +1343,11 @@ def filter_scan_func(radar_sheet, statistics):
                 radar_sheet.rect_filter_move_show_track("show track", 0, 0, 0, 0)
             if msg["type"] == "scan track":
                 exit_scan_mark = False
+                cover_count = 0
+                total_shots_min = 0
+                total_shots_max = 0
+                total_shots_avg = 0
+                radar_sheet.statistics_label.config(text = radar_sheet.statistics_label_default)
                 while True:
                     print("scan track")
                     filter_areas_data_json = []
@@ -1369,12 +1375,6 @@ def filter_scan_func(radar_sheet, statistics):
                     scan_data["data"] = []
                     once_total_shots = 0
 
-                    cover_count = 0
-                    total_shots_min = 0
-                    total_shots_max = 0
-                    total_shots_avg = 0
-                    show_label = radar_sheet.statistics_label_default
-                    radar_sheet.statistics_label.config(text = show_label)
                     statistics.clear()
                     once_scan_start_timestamp = int(time.time())
                     for item in filter_areas_data_json:
@@ -1418,9 +1418,22 @@ def filter_scan_func(radar_sheet, statistics):
                         scan_data_item_end_timestamp = int(time.time())
                         scan_data_item["time_use"] = scan_data_item_end_timestamp - scan_data_item_start_timestamp
                         scan_data["data"].append(scan_data_item)
-                        print(f'scan_data["data"]={scan_data["data"]}')
+                        print(f'scan_data_item={scan_data_item}')
+                        print("")
                         # ------------------------------
+                        if once_total_shots < total_shots_min:
+                            total_shots_min = once_total_shots
+                        if once_total_shots > total_shots_max:
+                            total_shots_max = once_total_shots
+                        show_label = "cover_count="+str(cover_count)+", " + \
+                                "total_min="+str(total_shots_min)+", " + \
+                                "total_max="+str(total_shots_max)+", " + \
+                                total_avg_str
+                        
+                        radar_sheet.statistics_label.config(text = show_label)
+
                         time.sleep(1)
+                    
                         if len(filter_scan_func_exit_msg_list) > 0:
                             exit_msg = filter_scan_func_exit_msg_list.pop()
                             if exit_msg["type"] == "exit scan":
@@ -1448,11 +1461,12 @@ def filter_scan_func(radar_sheet, statistics):
                     for item in statistics:
                         total_shots_total += item["total shots"]
                     total_shots_avg = total_shots_total/len(statistics)
+                    total_avg_str = "total_avg="+str(total_shots_avg)
 
                     show_label = "cover_count="+str(cover_count)+", " + \
                                 "total_min="+str(total_shots_min)+", " + \
                                 "total_max="+str(total_shots_max)+", " + \
-                                "total_avg="+str(total_shots_avg)
+                                total_avg_str
                     
                     radar_sheet.statistics_label.config(text = show_label)
 
