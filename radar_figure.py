@@ -1512,7 +1512,8 @@ def filter_scan_func(radar_sheet, statistics):
                         if len(filter_scan_func_exit_msg_list) > 0:
                             exit_msg = filter_scan_func_exit_msg_list.pop()
                             if exit_msg["type"] == "exit scan":
-                                exit_scan_mark = True
+                                if item != filter_areas_data_json[-1]:
+                                    exit_scan_mark = True
                                 break
                     scan_data["total shots"] = once_total_shots
                     localtime = time.localtime()
