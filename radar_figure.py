@@ -61,6 +61,12 @@ DynamicPlotThread_msg_list = []
 
 DynamicPlotThread_state_dict = {"draw shot":True}
 
+data_file_path_list = {
+    "config_filter_areas_data_json_path":"",
+    "config_radar_collect_config_json_path":"",
+    "log_once_run_log_folder_path":""
+}
+
 
 
 def exit_button_callback():
@@ -373,6 +379,13 @@ class radar_sheet():
             self.ax_radar.set_ylim(ymin=0, ymax=self.sheet_distance)
             self.ax_radar.xaxis.set_major_locator(MultipleLocator(self.sheet_dis_reso))
             self.ax_radar.yaxis.set_major_locator(MultipleLocator(self.sheet_dis_reso))
+
+            if self.sheet_distance/self.sheet_dis_reso > 35:
+                for tick in self.ax_radar.get_xticklabels():
+                    tick.set_rotation(90)
+            elif self.sheet_distance/self.sheet_dis_reso > 15:
+                for tick in self.ax_radar.get_xticklabels():
+                    tick.set_rotation(45)
             
 
             self.ax_radar.grid(True,color='black',linestyle=':',linewidth=0.5)
@@ -1200,19 +1213,22 @@ def radar_computer_ld2450(data_in):
 
 
 def radar_data_analyse(data_in, data_out):
-    if os.path.exists('data')==False:
-        os.mkdir('data')
-    if os.path.exists('data/radardata')==False:
-        os.mkdir('data/radardata')
     while(True):
         if button_state_list["exit"]==False:
             if len(data_in) > 0:
 
                 if button_state_list["json record"]==True:
                     # print(f"len(data_in)={len(data_in)}")
+                    localtime = time.localtime()
+                    once_run_radar_origin_data_log_folder = data_file_path_list["log_once_run_log_folder_path"]+"/"+ re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))
+                    if os.path.exists(once_run_radar_origin_data_log_folder)==False:
+                        os.mkdir(once_run_radar_origin_data_log_folder)
+                    
+                    radar_origin_data_name = 'radar_origin_data.json'
+                    once_run_radar_origin_data_log_path = once_run_radar_origin_data_log_folder+"/"+radar_origin_data_name
                     radar_data_json = []
                     try:
-                        with open('data/radardata/radar_data.json', 'r') as f:
+                        with open(once_run_radar_origin_data_log_path, 'r') as f:
                             radar_data_json = json.load(f)
                     except:
                         print("ignore")
@@ -1227,7 +1243,7 @@ def radar_data_analyse(data_in, data_out):
                         objects_data_item["data"]=radar_data_list
                         radar_data_json.append(objects_data_item)
                     
-                    with open('data/radardata/radar_data.json', 'w') as f:
+                    with open(once_run_radar_origin_data_log_path, 'w') as f:
                         json.dump(radar_data_json, f, indent=4)
                 else:
                     pass
@@ -1305,7 +1321,7 @@ def filter_area_select(radar_sheet):
 
     filter_areas_data_json = []
     try:
-        with open('data/radardata/filter_areas_data.json', 'r') as f:
+        with open(data_file_path_list["config_filter_areas_data_json_path"], 'r') as f:
             filter_areas_data_json = json.load(f)
     except:
         print("ignore")
@@ -1338,7 +1354,7 @@ def filter_area_select(radar_sheet):
                     print("fs")
                     filter_areas_data_json = []
                     try:
-                        with open('data/radardata/filter_areas_data.json', 'r') as f:
+                        with open(data_file_path_list["config_filter_areas_data_json_path"], 'r') as f:
                             filter_areas_data_json = json.load(f)
                     except:
                         print("ignore")
@@ -1350,7 +1366,7 @@ def filter_area_select(radar_sheet):
                     radar_sheet.sector_scan_filter_move(sel_area_item)
 
                     
-                    with open('data/radardata/filter_areas_data.json', 'w') as f:
+                    with open(data_file_path_list["config_filter_areas_data_json_path"], 'w') as f:
                         json.dump(filter_areas_data_json, f, indent=4)
                     pass
                 elif button_state_list["fsm"] == "off":
@@ -1360,7 +1376,7 @@ def filter_area_select(radar_sheet):
             elif msg["type"] == "cfsm clear":
                 print("cfsm clear")
                 filter_areas_data_json = []
-                with open('data/radardata/filter_areas_data.json', 'w') as f:
+                with open(data_file_path_list["config_filter_areas_data_json_path"], 'w') as f:
                     json.dump(filter_areas_data_json, f, indent=4)
                 radar_sheet.sector_scan_filter_move_clear_all()
                 pass
@@ -1386,7 +1402,7 @@ def filter_scan_func(radar_sheet, statistics):
                 print("show track")
                 filter_areas_data_json = []
                 try:
-                    with open('data/radardata/filter_areas_data.json', 'r') as f:
+                    with open(data_file_path_list["config_filter_areas_data_json_path"], 'r') as f:
                         filter_areas_data_json = json.load(f)
                 except:
                     print("ignore")
@@ -1405,7 +1421,7 @@ def filter_scan_func(radar_sheet, statistics):
                     print("scan track")
                     filter_areas_data_json = []
                     try:
-                        with open('data/radardata/filter_areas_data.json', 'r') as f:
+                        with open(data_file_path_list["config_filter_areas_data_json_path"], 'r') as f:
                             filter_areas_data_json = json.load(f)
                     except:
                         print("ignore")
@@ -1415,13 +1431,26 @@ def filter_scan_func(radar_sheet, statistics):
                         break
 
                     sync_pause_scan_button(True)
+
+                    localtime = time.localtime()
+                    once_run_radar_origin_data_log_folder = data_file_path_list["log_once_run_log_folder_path"]+"/"+ re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))
+                    if os.path.exists(once_run_radar_origin_data_log_folder)==False:
+                        os.mkdir(once_run_radar_origin_data_log_folder)
+                    
+                    once_run_statistics_folder_path = once_run_radar_origin_data_log_folder+"/"+re.sub('[:]', '_', str(time.strftime("%H:%M:%S", localtime)))
+                    if os.path.exists(once_run_statistics_folder_path)==False:
+                        os.mkdir(once_run_statistics_folder_path)
+
+                    once_run_statistics_json_path = once_run_statistics_folder_path+"/"+"statistics.json"
+                    once_run_statistics_pic_path = once_run_statistics_folder_path+"/"+"statistics.png"
+
+                    once_run_statistics_filter_areas_data_json_path = once_run_statistics_folder_path+"/"+"filter_areas_data.json"
+
+                    with open(once_run_statistics_filter_areas_data_json_path, 'w') as f:
+                        json.dump(filter_areas_data_json, f, indent=4)
                     
                     scan_data = {}
-                    localtime = time.localtime()
                     localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
-                    
-                    statistics_data_path = "data/radardata/statistics_data"+"_"+re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))+"_"+re.sub('[:]', '_', str(time.strftime("%H:%M:%S", localtime)))+".json"
-                    statistics_data_pic_path = "data/radardata/statistics_data_pic"+"_"+re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))+"_"+re.sub('[:]', '_', str(time.strftime("%H:%M:%S", localtime)))+".png"
                     scan_data["start_time"]=localtimestr
                     scan_data["end_time"]="-"
                     scan_data["time_use"]="-"
@@ -1516,7 +1545,7 @@ def filter_scan_func(radar_sheet, statistics):
                     scan_data["time_use"] = once_scan_end_timestamp-once_scan_start_timestamp
                     statistics.append(scan_data)
                     print(f"statistics={statistics}")
-                    with open(statistics_data_path, 'w') as f:
+                    with open(once_run_statistics_json_path, 'w') as f:
                             json.dump(statistics, f, indent=4)
                     radar_sheet.rect_filter_move_show_track("test_scan", 0, 0, 0, 0)
 
@@ -1543,7 +1572,7 @@ def filter_scan_func(radar_sheet, statistics):
                     clear_shot_msg["type"] = "clear all shots"
                     DynamicPlotThread_msg_list.append(clear_shot_msg)
                     time.sleep(3)
-                    radar_sheet.save_fig(statistics_data_pic_path)
+                    radar_sheet.save_fig(once_run_statistics_pic_path)
                     time.sleep(1)
 
                     DynamicPlotThread_state_dict["draw shot"] = True
@@ -1616,14 +1645,36 @@ if __name__ == '__main__':
         }
     }
 
+    localtime = time.localtime()
+    radar_log_folder = 'radar_logs_' + re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))
+
+    my_radar_config_folder = "data/configs"
+    my_radar_logs_folder = "data/logs"
+    if os.path.exists('data')==False:
+        os.mkdir('data')
+
+    if os.path.exists(my_radar_config_folder)==False:
+        os.mkdir(my_radar_config_folder)
+    if os.path.exists(my_radar_logs_folder)==False:
+        os.mkdir(my_radar_logs_folder)
+    
+    
+
+    data_file_path_list["log_once_run_log_folder_path"] = my_radar_logs_folder
+
+    data_file_path_list["config_filter_areas_data_json_path"] = my_radar_config_folder+"/"+"config_filter_areas_data.json"
+
+    data_file_path_list["config_radar_collect_config_json_path"] = my_radar_config_folder+"/"+"config_radar_collect_config.json"
+
+
     radar_collect_config_json = {}
     try:
-        with open('radar_collect_config.json', 'r') as f:
+        with open(data_file_path_list["config_radar_collect_config_json_path"], 'r') as f:
             radar_collect_config_json = json.load(f)
     except:
-        with open('radar_collect_config.json', 'w') as f:
+        with open(data_file_path_list["config_radar_collect_config_json_path"], 'w') as f:
             json.dump(radar_collect_config_json_default, f, indent=4)
-        with open('radar_collect_config.json', 'r') as f:
+        with open(data_file_path_list["config_radar_collect_config_json_path"], 'r') as f:
             radar_collect_config_json = json.load(f)
     
     radar_sheet_config = {}
@@ -1631,7 +1682,7 @@ if __name__ == '__main__':
         radar_sheet_config = radar_collect_config_json["radar_sheet_config"]
     for item in radar_collect_config_json_default["radar_sheet_config"]:
         if item not in radar_sheet_config:
-            print(colorama.Fore.YELLOW+"missing "+item+" in radar_collect_config.json->radar_sheet_config")
+            print(colorama.Fore.YELLOW+"missing "+item+" in "+data_file_path_list["config_radar_collect_config_json_path"]+"->radar_sheet_config")
             print(colorama.Style.RESET_ALL)
             radar_collect_config_json = radar_collect_config_json_default
             radar_sheet_config = radar_collect_config_json["radar_sheet_config"]
