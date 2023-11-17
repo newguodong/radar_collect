@@ -23,8 +23,19 @@ from matplotlib.figure import Figure
 
 from matplotlib.ticker import MultipleLocator
 
+import colorama
 
-button_state_list = {"exit":False, "json record":False, "scan mode":"multi", "area1 filter":False, "area2 filter":False, "area3 filter":False, "fsm":"off", "scan":False}
+
+button_state_list = {
+    "exit":False, 
+    "json record":False, 
+    "scan mode":"multi", 
+    "area1 filter":False, 
+    "area2 filter":False, 
+    "area3 filter":False, 
+    "fsm":"off", "scan":False
+    }
+
 button_dict = {}
 
 sendmsglist=[]
@@ -295,18 +306,34 @@ def onclick(event):
                 break
 
 class radar_sheet():
-    def __init__(self, radar_tk_window, sheet_type, radar_normal_angel, radar_theta, radar_distance, sortnum, dis_reso) -> None:
+    def __init__(self, radar_tk_window, sheet_type, radar_normal_angel, radar_theta, radar_distance, sheet_dis_reso, filter_area_reso) -> None:
         self.tk_window = radar_tk_window
         self.sheet_type = sheet_type
-        self.radar_normal_angel = 90
-        self.radar_theta = 120
-        self.radar_distance = radar_distance
-        self.sortnum = sortnum+1
-        self.radar_valid_dis = 800
+        self.radar_normal_angel = radar_normal_angel
+        self.radar_theta = radar_theta
+        self.sheet_distance = radar_distance+(int(radar_distance/5))
+        self.sortnum = 36+1
+        self.radar_valid_dis = radar_distance
+        self.sheet_dis_reso = sheet_dis_reso
+
+        if self.sheet_dis_reso > radar_distance:
+            self.sheet_dis_reso = radar_distance
+        if self.sheet_dis_reso <= 0:
+            self.sheet_dis_reso = 36
+
+        self.filter_area_reso = filter_area_reso
+        if self.filter_area_reso < self.sheet_dis_reso:
+            self.filter_area_reso = self.sheet_dis_reso
+
+        if self.filter_area_reso%self.sheet_dis_reso != 0:
+            self.filter_area_reso = self.sheet_dis_reso*int(self.filter_area_reso/self.sheet_dis_reso)
+        
+        print(f"self.sheet_dis_reso={self.sheet_dis_reso}")
+        print(f"self.filter_area_reso={self.filter_area_reso}")
 
         self.theta = np.pi*radar_normal_angel/180
         self.width = np.pi*radar_theta/180
-        self.colors = plt.cm.viridis(radar_distance / 10.)
+        self.colors = plt.cm.viridis(self.radar_valid_dis / 10.)
 
         self.sector_scan_filter_list = []
 
@@ -321,13 +348,13 @@ class radar_sheet():
 
             self.theta = np.pi*radar_normal_angel/180
             self.width = np.pi*radar_theta/180
-            self.colors = plt.cm.viridis(radar_distance / 10.)
+            self.colors = plt.cm.viridis(self.radar_valid_dis / 10.)
 
-            self.ax_radar.bar(self.theta, radar_distance, width=self.width, bottom=0.0, color=self.colors, alpha=0.5)
+            self.ax_radar.bar(self.theta, self.radar_valid_dis, width=self.width, bottom=0.0, color=self.colors, alpha=0.5)
 
             self.ax_radar.set_thetamin(0)
             self.ax_radar.set_thetamax(360)
-            self.ax_radar.set_rlim(0, radar_distance)
+            self.ax_radar.set_rlim(0, self.radar_valid_dis)
 
             plt.setp(self.ax_radar.get_xticklabels(), visible=False)
             plt.setp(self.ax_radar.get_yticklabels(), visible=False)
@@ -342,13 +369,13 @@ class radar_sheet():
 
             plt.gca().set_aspect('equal', adjustable='box')
 
-            self.ax_radar.set_xlim(xmin=-self.radar_distance, xmax=self.radar_distance)
-            self.ax_radar.set_ylim(ymin=0, ymax=self.radar_distance)
-            self.ax_radar.xaxis.set_major_locator(MultipleLocator(dis_reso))
-            self.ax_radar.yaxis.set_major_locator(MultipleLocator(dis_reso))
+            self.ax_radar.set_xlim(xmin=-self.sheet_distance, xmax=self.sheet_distance)
+            self.ax_radar.set_ylim(ymin=0, ymax=self.sheet_distance)
+            self.ax_radar.xaxis.set_major_locator(MultipleLocator(self.sheet_dis_reso))
+            self.ax_radar.yaxis.set_major_locator(MultipleLocator(self.sheet_dis_reso))
             
 
-            self.ax_radar.grid(False,color='black',linestyle=':',linewidth=0.5)
+            self.ax_radar.grid(True,color='black',linestyle=':',linewidth=0.5)
 
             # arc
             arc = matplotlib.patches.Arc((0,0), self.radar_valid_dis*2, self.radar_valid_dis*2, angle=0, theta1=self.radar_normal_angel-self.radar_theta/2, theta2=self.radar_normal_angel+self.radar_theta/2, linestyle=':', color = "blue", linewidth = 1.5)
@@ -387,8 +414,8 @@ class radar_sheet():
             # plt.gca().add_patch(plt.Rectangle(xy=(0, 36), width=72, height=108, edgecolor='green', fill=False, linewidth=2))
             # self.valid_dis = 600
 
-            rect_x_list = list(range(0-108, -800-108, -108))
-            rect_y_list = list(range(0, 800, 108))
+            rect_x_list = list(range(0-self.filter_area_reso, -self.radar_valid_dis-self.filter_area_reso, -self.filter_area_reso))
+            rect_y_list = list(range(0, self.radar_valid_dis, self.filter_area_reso))
 
             self.scan_rect_xy_list = []
 
@@ -397,15 +424,15 @@ class radar_sheet():
                     rect_xy_item = [rect_x, rect_y]
                     self.scan_rect_xy_list.append(rect_xy_item)
 
-            rect_x_list = list(range(0, 800, 108))
+            rect_x_list = list(range(0, self.radar_valid_dis, self.filter_area_reso))
             for rect_x in rect_x_list:
                 for rect_y in rect_y_list:
                     rect_xy_item = [rect_x, rect_y]
                     self.scan_rect_xy_list.append(rect_xy_item)
 
-            print(len(self.scan_rect_xy_list))
+            print(f"len(self.scan_rect_xy_list)={len(self.scan_rect_xy_list)}")
 
-            print(self.scan_rect_xy_list)
+            print(f"self.scan_rect_xy_list={self.scan_rect_xy_list}")
 
             self.grid_list = []
 
@@ -414,11 +441,11 @@ class radar_sheet():
             for o_item in self.scan_rect_xy_list:
                 grid_item = {}
                 grid_item["x1y1"] = o_item
-                temp_item = [o_item[0]+108, o_item[1]]  
+                temp_item = [o_item[0]+self.filter_area_reso, o_item[1]]  
                 grid_item["x2y2"] = temp_item
-                temp_item = [o_item[0]+108, o_item[1]+108]
+                temp_item = [o_item[0]+self.filter_area_reso, o_item[1]+self.filter_area_reso]
                 grid_item["x3y3"] = temp_item
-                temp_item = [o_item[0], o_item[1]+108]  
+                temp_item = [o_item[0], o_item[1]+self.filter_area_reso]  
                 grid_item["x4y4"] = temp_item
                 self.grid_list.append(grid_item)
             
@@ -431,10 +458,10 @@ class radar_sheet():
 
 
             for item in self.scan_rect_xy_list:
-                plt.gca().add_patch(plt.Rectangle(xy=(item[0], item[1]), width=108, height=108, edgecolor='green', fill=False, linewidth=1))
+                plt.gca().add_patch(plt.Rectangle(xy=(item[0], item[1]), width=self.filter_area_reso, height=self.filter_area_reso, edgecolor='green', fill=False, linewidth=1, alpha=0.4))
 
-            test_scan = plt.gca().add_patch(plt.Rectangle(xy=(-540, 540), width=108, height=108, edgecolor='red', fill=False, linewidth=2))
-            test_scan.remove()
+            # test_scan = plt.gca().add_patch(plt.Rectangle(xy=(-540, 540), width=self.filter_area_reso, height=self.filter_area_reso, edgecolor='red', fill=False, linewidth=2))
+            # test_scan.remove()
 
             self.rect_filters = []
 
@@ -546,12 +573,12 @@ class radar_sheet():
 
             rect_xywh = rect_2p_to_xywh(rect[0], rect[1], rect[2], rect[3])
             sector_filter_dict["xy"] = rect
-            sector_filter_dict[rect_name]=self.ax_radar.add_patch(plt.Rectangle(xy=rect_xywh["xy"], width=rect_xywh["w"], height=rect_xywh["h"], edgecolor=ec, fill=fill, linewidth=2))
-            sector_filter_dict["index text"] = self.ax_radar.text(rect[0]+54, rect[1]+54, str(len(self.sector_scan_filter_list)), alpha=0.3)
+            sector_filter_dict[rect_name]=self.ax_radar.add_patch(plt.Rectangle(xy=rect_xywh["xy"], width=rect_xywh["w"], height=rect_xywh["h"], edgecolor=ec, fill=fill, linewidth=2, alpha=alpha))
+            sector_filter_dict["index text"] = self.ax_radar.text(rect[0]+self.filter_area_reso/2-6, rect[1]+self.filter_area_reso/2-6, str(len(self.sector_scan_filter_list)), alpha=0.2)
             self.sector_scan_filter_list.append(sector_filter_dict)
     
     def sector_scan_filter_move(self, rect):
-        self._sector_scan_filter_move(rect, ec='red', fc="green", alpha=0.1, fill=False, linewidth=1)
+        self._sector_scan_filter_move(rect, ec='red', fc="green", alpha=0.7, fill=False, linewidth=1)
 
     def sector_scan_filter_move_clear_all(self):
         print(f"self.sector_scan_filter_list={self.sector_scan_filter_list}")
@@ -1267,7 +1294,7 @@ def query_filter_area(radar_sheet):
 
 def filter_area_select(radar_sheet):
     runtimes = 0
-    print(f"radar_sheet.scan_rect_xy_list={radar_sheet.scan_rect_xy_list}")
+    # print(f"radar_sheet.scan_rect_xy_list={radar_sheet.scan_rect_xy_list}")
 
     print("start scan...")
     areas_counts = len(radar_sheet.scan_rect_xy_list)
@@ -1574,8 +1601,54 @@ if __name__ == '__main__':
     win_screen_width = radar_tk_window.winfo_screenwidth()
     screen_size_str = str(int(win_screen_width/2))+"x"+str(int(win_screen_high/2))
     radar_tk_window.geometry(screen_size_str)
+    try:
+        radar_tk_window.iconbitmap("logo.ico")
+    except:
+        print("Unexpected error:", sys.exc_info()[0])
 
-    radar_sheet1 = radar_sheet(radar_tk_window, "rect", 90, 120, 1000, 36, 36)
+    radar_collect_config_json_default = {
+        "radar_sheet_config":{
+            "radar_normal_angel": 90,
+            "radar_theta": 120,
+            "radar_distance": 800,
+            "radar_sheet_dis_reso": 36,
+            "radar_filter_area_reso": 108
+        }
+    }
+
+    radar_collect_config_json = {}
+    try:
+        with open('radar_collect_config.json', 'r') as f:
+            radar_collect_config_json = json.load(f)
+    except:
+        with open('radar_collect_config.json', 'w') as f:
+            json.dump(radar_collect_config_json_default, f, indent=4)
+        with open('radar_collect_config.json', 'r') as f:
+            radar_collect_config_json = json.load(f)
+    
+    radar_sheet_config = {}
+    if "radar_sheet_config" in radar_collect_config_json:
+        radar_sheet_config = radar_collect_config_json["radar_sheet_config"]
+    for item in radar_collect_config_json_default["radar_sheet_config"]:
+        if item not in radar_sheet_config:
+            print(colorama.Fore.YELLOW+"missing "+item+" in radar_collect_config.json->radar_sheet_config")
+            print(colorama.Style.RESET_ALL)
+            radar_collect_config_json = radar_collect_config_json_default
+            radar_sheet_config = radar_collect_config_json["radar_sheet_config"]
+            break
+    
+    print(f"radar_collect_config_json={radar_collect_config_json}")
+
+
+    radar_sheet1 = radar_sheet(
+        radar_tk_window, 
+        "rect", 
+        radar_sheet_config["radar_normal_angel"], 
+        radar_sheet_config["radar_theta"], 
+        radar_sheet_config["radar_distance"], 
+        radar_sheet_config["radar_sheet_dis_reso"], 
+        radar_sheet_config["radar_filter_area_reso"])
+    
     plt.title('24GHz radar collect')
 
     radar_original_data = [

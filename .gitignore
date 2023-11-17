@@ -157,6 +157,7 @@ mysocketmonitor.txt
 mylogfiles/
 radardata.bin
 data/radardata/
+radar_collect_config.json
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
