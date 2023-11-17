@@ -722,6 +722,24 @@ class DynamicPlotThread(Thread):
 
     def run(self):
         while True:
+            if DynamicPlotThread_state_dict["draw shot"]==False:
+                self.objects.clear()
+
+                if len(DynamicPlotThread_msg_list)>0:
+                    msg = DynamicPlotThread_msg_list.pop()
+                    if msg["type"] == "clear all shots":
+                        for ishot in self.shots:
+                            if ishot["shot status"]==1:
+                                    ishot["shot time"] = 0
+                                    ishot["shot status"] = 0
+                                    ishot["shot shot"].del_shot()
+            
+                self.radar_sheet.fig.canvas.draw()
+                while DynamicPlotThread_state_dict["draw shot"]==False:
+                    self.objects.clear()
+                    time.sleep(0.5)
+                self.objects.clear()
+
             self.runtimes += 1
             
             for iobject in self.objects:
@@ -799,8 +817,8 @@ class DynamicPlotThread(Thread):
             
             self.radar_sheet.fig.canvas.draw()
 
-            while DynamicPlotThread_state_dict["draw shot"]==False:
-                time.sleep(0.5)
+            # while DynamicPlotThread_state_dict["draw shot"]==False:
+            #     time.sleep(0.5)
 
             time.sleep(0.3)
 
@@ -1369,6 +1387,7 @@ def filter_scan_func(radar_sheet, statistics):
     total_shots_max = 0
     total_shots_avg = 0
     exit_scan_mark = False
+    exit_scan_hide_full = True
     total_avg_str = "--"
     while True:
         if len(filter_scan_func_msg_list)>0:
@@ -1388,6 +1407,7 @@ def filter_scan_func(radar_sheet, statistics):
             if msg["type"] == "scan track":
                 filter_scan_func_state["scan_state"] = True
                 exit_scan_mark = False
+                exit_scan_hide_full = True
                 cover_count = 0
                 total_shots_min = 0
                 total_shots_max = 0
@@ -1513,7 +1533,8 @@ def filter_scan_func(radar_sheet, statistics):
                             exit_msg = filter_scan_func_exit_msg_list.pop()
                             if exit_msg["type"] == "exit scan":
                                 if item != filter_areas_data_json[-1]:
-                                    exit_scan_mark = True
+                                    exit_scan_hide_full = False
+                                exit_scan_mark = True
                                 break
                     scan_data["total shots"] = once_total_shots
                     localtime = time.localtime()
@@ -1526,7 +1547,7 @@ def filter_scan_func(radar_sheet, statistics):
                     with open(once_run_statistics_json_path, 'w') as f:
                             json.dump(statistics, f, indent=4)
 
-                    if exit_scan_mark != True:
+                    if exit_scan_hide_full == True:
                         radar_sheet.rect_filter_move_cur_filter("test_scan", 0, 0, 0, 0)
 
                     cover_count+=1
