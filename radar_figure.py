@@ -314,7 +314,7 @@ def onclick(event):
                 break
 
 class radar_sheet():
-    def __init__(self, radar_tk_window, sheet_type, radar_normal_angel, radar_theta, radar_distance, sheet_dis_reso, filter_area_reso) -> None:
+    def __init__(self, radar_tk_window, sheet_type, radar_normal_angel, radar_theta, radar_distance, sheet_dis_reso, filter_area_reso, scan_interval_time) -> None:
         self.tk_window = radar_tk_window
         self.sheet_type = sheet_type
         self.radar_normal_angel = radar_normal_angel
@@ -499,7 +499,7 @@ class radar_sheet():
             #将用户输入的表达式显示在Entry控件上
             self.set_scan_entry ["textvariable"] = self.set_scan_expression
             #创建-一个 Button控件.当用户输入完毕后，单击此按钮即计算表达式的结果
-            self.scan_interval_time = 5
+            self.scan_interval_time = scan_interval_time
             self.set_scan_button = tk.Button (self.set_scan_interval_time_frame, text="set:"+str(self.scan_interval_time),command=self.set_scan_func)
 
             self.set_scan_entry.focus ()
@@ -1629,6 +1629,9 @@ if __name__ == '__main__':
             "radar_distance": 800,
             "radar_sheet_dis_reso": 36,
             "radar_filter_area_reso": 108
+        },
+        "radar_scan_config": {
+            "interval_time": 5
         }
     }
 
@@ -1671,10 +1674,23 @@ if __name__ == '__main__':
         if item not in radar_sheet_config:
             print(colorama.Fore.YELLOW+"missing "+item+" in "+data_file_path_list["config_radar_collect_config_json_path"]+"->radar_sheet_config")
             print(colorama.Style.RESET_ALL)
-            radar_collect_config_json = radar_collect_config_json_default
-            radar_sheet_config = radar_collect_config_json["radar_sheet_config"]
+            # radar_collect_config_json = radar_collect_config_json_default
+            radar_sheet_config = radar_collect_config_json_default["radar_sheet_config"]
             break
     
+    radar_scan_config = {}
+    if "radar_scan_config" in radar_collect_config_json:
+        radar_scan_config = radar_collect_config_json["radar_scan_config"]
+    for item in radar_collect_config_json_default["radar_scan_config"]:
+        if item not in radar_scan_config:
+            print(colorama.Fore.YELLOW+"missing "+item+" in "+data_file_path_list["config_radar_collect_config_json_path"]+"->radar_scan_config")
+            print(colorama.Style.RESET_ALL)
+            # radar_collect_config_json = radar_collect_config_json_default
+            radar_scan_config = radar_collect_config_json_default["radar_scan_config"]
+            break
+    
+    radar_collect_config_json["radar_sheet_config"] = radar_sheet_config
+    radar_collect_config_json["radar_scan_config"] = radar_scan_config
     print(f"radar_collect_config_json={radar_collect_config_json}")
 
 
@@ -1685,7 +1701,8 @@ if __name__ == '__main__':
         radar_sheet_config["radar_theta"], 
         radar_sheet_config["radar_distance"], 
         radar_sheet_config["radar_sheet_dis_reso"], 
-        radar_sheet_config["radar_filter_area_reso"])
+        radar_sheet_config["radar_filter_area_reso"], 
+        radar_scan_config["interval_time"])
     
     plt.title('24GHz radar collect')
 
