@@ -801,7 +801,7 @@ class DynamicPlotThread(Thread):
             while DynamicPlotThread_state_dict["draw shot"]==False:
                 time.sleep(0.5)
 
-            time.sleep(0.5)
+            time.sleep(0.3)
 
 
 
@@ -1523,7 +1523,9 @@ def filter_scan_func(radar_sheet, statistics):
                     print(f"statistics={statistics}")
                     with open(once_run_statistics_json_path, 'w') as f:
                             json.dump(statistics, f, indent=4)
-                    radar_sheet.rect_filter_move_show_track("test_scan", 0, 0, 0, 0)
+
+                    if exit_scan_mark != True:
+                        radar_sheet.rect_filter_move_cur_filter("test_scan", 0, 0, 0, 0)
 
                     cover_count+=1
                     if once_total_shots < total_shots_min:
@@ -1557,6 +1559,8 @@ def filter_scan_func(radar_sheet, statistics):
                         item.del_shot()
                     show_shots_mark_list.clear()
 
+                    radar_sheet.rect_filter_move_cur_filter("test_scan", 0, 0, 0, 0)
+
                     try:
                         if msg["scan_type"]=="period":
                             
@@ -1579,6 +1583,9 @@ def filter_scan_func(radar_sheet, statistics):
                         filter_scan_func_state["scan_state"] = False
                         print("KeyError, break")
                         break
+            filter_scan_func_msg_list.clear()
+            filter_scan_func_exit_msg_list.clear()
+
                     
 
         else:
