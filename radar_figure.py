@@ -55,6 +55,8 @@ filter_scan_func_msg_list = []
 
 filter_scan_func_exit_msg_list = []
 
+filter_scan_func_state = {"scan_state":False}
+
 cur_shots_list = []
 
 DynamicPlotThread_msg_list = []
@@ -809,9 +811,6 @@ socket_port = 5000
 
 sockets = []
 mysockets = []
-mysockets_log = []
-
-
 
 def mysocket_monitor():
     mysocketmonitorfile = open('mysocketmonitor.txt', 'w')
@@ -872,11 +871,6 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
     msg_count = 0
     rcv_buf = bytes()
     read_posi = 0
-    last_read_posi = 0
-    one_dataframe_data = bytes()
-    send_sn_counter = 0
-    picture_count = 0
-    # radar_data_frame = 0
     while True:
         try:
             recv_data = client_socket.recv(65536)
@@ -1103,30 +1097,9 @@ def tcp_creator(radar_data_list):
 
             localtime = time.localtime()
             localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
-            timestr_1 = time.strftime("%H_%M_%S", localtime)
-            mylogfilesname = 'mylogs_' + re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))
-            mylogfilename = 'mylog_' + re.sub('[:]', '_', str(time.strftime("%H:%M:%S", localtime))) + \
-                '_fd' + str(client_socket.fileno()) + '.bin'
-            mylogackfilename = 'mylog_' + re.sub('[:]', '_', str(time.strftime("%H:%M:%S", localtime))) + \
-                '_fd' + str(client_socket.fileno()) + 'ack.bin'
-
-            if os.path.exists('mylogfiles')==False:
-                os.mkdir('mylogfiles')
-            if os.path.exists('mylogfiles/' + mylogfilesname)==False:
-                os.mkdir('mylogfiles/' + mylogfilesname)
-            if os.path.exists('mylogfiles/' + mylogfilesname + '/' + timestr_1)==False:
-                os.mkdir('mylogfiles/' + mylogfilesname + '/' + timestr_1)
-            logfilepath = 'mylogfiles/' + '/' + mylogfilesname + '/' + timestr_1 + '/' + mylogfilename
-            acklogfilepath = 'mylogfiles/'+ '/'  + mylogfilesname + '/' + timestr_1 + '/' + mylogackfilename
 
 #            print('[new client][time: ' + localtimestr + ']' + ' [fd=' + str(client_socket.fileno()) + \
 #                ', statistic: ' + str(len(sockets)) + '/' + str(socket_client_ulimit) + ']')
-
-            mysocketlog = open(logfilepath, 'ab')
-            mysocketlog.close()
-
-            mysocketlog = open(acklogfilepath, 'ab')
-            mysocketlog.close()
 
             access_date = re.sub('[-]', '_', str(time.strftime("%Y-%m-%d", localtime)))
             access_time = re.sub('[-]', '_', str(time.strftime("%H:%M:%S", localtime)))
@@ -1333,58 +1306,59 @@ def filter_area_select(radar_sheet):
         if len(next_af_msg_list)>0:
             msg = next_af_msg_list.pop()
 
-            sel_area_item = []
-            if msg["type"] == "any":
-                msg_posi = msg["posi"]
-                sel_area_item.append(msg_posi["x1y1"][0])
-                sel_area_item.append(msg_posi["x1y1"][1])
-                sel_area_item.append(msg_posi["x3y3"][0])
-                sel_area_item.append(msg_posi["x3y3"][1])
+            if filter_scan_func_state["scan_state"]!=True:
+                sel_area_item = []
+                if msg["type"] == "any":
+                    msg_posi = msg["posi"]
+                    sel_area_item.append(msg_posi["x1y1"][0])
+                    sel_area_item.append(msg_posi["x1y1"][1])
+                    sel_area_item.append(msg_posi["x3y3"][0])
+                    sel_area_item.append(msg_posi["x3y3"][1])
 
-                # print(f"sel_area_item={sel_area_item}")
-                # print(f"msg['type']={msg['type']}")
+                    # print(f"sel_area_item={sel_area_item}")
+                    # print(f"msg['type']={msg['type']}")
 
-                if button_state_list["fsm"] == "ss":
-                    print("ss")
-                    radar_sheet.rect_filter_move_cur_filter("test_scan", msg_posi["x1y1"][0], msg_posi["x1y1"][1], msg_posi["x3y3"][0], msg_posi["x3y3"][1])
-                    scan_areas = []
-                    scan_areas.append(sel_area_item)
-                    set_filter_area_packer(scan_areas, filtertype=1)
-                elif button_state_list["fsm"] == "fs":
-                    print("fs")
+                    if button_state_list["fsm"] == "ss":
+                        print("ss")
+                        radar_sheet.rect_filter_move_cur_filter("test_scan", msg_posi["x1y1"][0], msg_posi["x1y1"][1], msg_posi["x3y3"][0], msg_posi["x3y3"][1])
+                        scan_areas = []
+                        scan_areas.append(sel_area_item)
+                        set_filter_area_packer(scan_areas, filtertype=1)
+                    elif button_state_list["fsm"] == "fs":
+                        print("fs")
+                        filter_areas_data_json = []
+                        try:
+                            with open(data_file_path_list["config_filter_areas_data_json_path"], 'r') as f:
+                                filter_areas_data_json = json.load(f)
+                        except:
+                            print("ignore")
+
+                        if sel_area_item not in filter_areas_data_json:
+                            filter_areas_data_json.append(sel_area_item)
+                        else:
+                            filter_areas_data_json.remove(sel_area_item)
+                        radar_sheet.sector_scan_filter_move(sel_area_item)
+
+                        
+                        with open(data_file_path_list["config_filter_areas_data_json_path"], 'w') as f:
+                            json.dump(filter_areas_data_json, f, indent=4)
+                        pass
+                    elif button_state_list["fsm"] == "off":
+                        # print("off")
+                        pass
+
+                elif msg["type"] == "cfsm clear":
+                    print("cfsm clear")
                     filter_areas_data_json = []
-                    try:
-                        with open(data_file_path_list["config_filter_areas_data_json_path"], 'r') as f:
-                            filter_areas_data_json = json.load(f)
-                    except:
-                        print("ignore")
-
-                    if sel_area_item not in filter_areas_data_json:
-                        filter_areas_data_json.append(sel_area_item)
-                    else:
-                        filter_areas_data_json.remove(sel_area_item)
-                    radar_sheet.sector_scan_filter_move(sel_area_item)
-
-                    
                     with open(data_file_path_list["config_filter_areas_data_json_path"], 'w') as f:
                         json.dump(filter_areas_data_json, f, indent=4)
-                    pass
-                elif button_state_list["fsm"] == "off":
-                    # print("off")
+                    radar_sheet.sector_scan_filter_move_clear_all()
                     pass
 
-            elif msg["type"] == "cfsm clear":
-                print("cfsm clear")
-                filter_areas_data_json = []
-                with open(data_file_path_list["config_filter_areas_data_json_path"], 'w') as f:
-                    json.dump(filter_areas_data_json, f, indent=4)
-                radar_sheet.sector_scan_filter_move_clear_all()
-                pass
-
-            elif msg["type"] == "clear":
-                radar_sheet.rect_filter_move_cur_filter("test_scan", 0, 0, 0, 0)
-                # scan_areas = []
-                # set_filter_area_packer(scan_areas, filtertype=1)
+                elif msg["type"] == "clear":
+                    radar_sheet.rect_filter_move_cur_filter("test_scan", 0, 0, 0, 0)
+                    # scan_areas = []
+                    # set_filter_area_packer(scan_areas, filtertype=1)
         else:
             time.sleep(0.2)
 
@@ -1411,6 +1385,7 @@ def filter_scan_func(radar_sheet, statistics):
                     time.sleep(1)
                 radar_sheet.rect_filter_move_show_track("show track", 0, 0, 0, 0)
             if msg["type"] == "scan track":
+                filter_scan_func_state["scan_state"] = True
                 exit_scan_mark = False
                 cover_count = 0
                 total_shots_min = 0
@@ -1428,6 +1403,7 @@ def filter_scan_func(radar_sheet, statistics):
                     
                     if len(filter_areas_data_json)==0:
                         print("len(filter_areas_data_json)==0, break")
+                        filter_scan_func_state["scan_state"] = False
                         break
 
                     sync_pause_scan_button(True)
@@ -1585,6 +1561,8 @@ def filter_scan_func(radar_sheet, statistics):
                         if msg["scan_type"]=="period":
                             
                             if exit_scan_mark == True:
+                                filter_scan_func_state["scan_state"] = False
+                                sync_pause_scan_button(False)
                                 print("exit scan")
                                 break
                             print("period scan...")
@@ -1592,11 +1570,13 @@ def filter_scan_func(radar_sheet, statistics):
                         else:
                             statistics.clear()
                             sync_pause_scan_button(False)
+                            filter_scan_func_state["scan_state"] = False
                             print("scan once, break")
                             break
                     except(KeyError):
                         statistics.clear()
                         sync_pause_scan_button(False)
+                        filter_scan_func_state["scan_state"] = False
                         print("KeyError, break")
                         break
                     
