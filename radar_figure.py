@@ -473,7 +473,7 @@ class radar_sheet():
 
 
             for item in self.scan_rect_xy_list:
-                plt.gca().add_patch(plt.Rectangle(xy=(item[0], item[1]), width=self.filter_area_reso, height=self.filter_area_reso, edgecolor='green', fill=False, linewidth=1, alpha=0.4))
+                plt.gca().add_patch(plt.Rectangle(xy=(item[0], item[1]), width=self.filter_area_reso, height=self.filter_area_reso, edgecolor='green', fill=False, linewidth=1.5, alpha=0.5))
 
             # test_scan = plt.gca().add_patch(plt.Rectangle(xy=(-540, 540), width=self.filter_area_reso, height=self.filter_area_reso, edgecolor='red', fill=False, linewidth=2))
             # test_scan.remove()
@@ -586,14 +586,15 @@ class radar_sheet():
             
             sector_filter_dict["name"] = rect_name
 
-            rect_xywh = rect_2p_to_xywh(rect[0], rect[1], rect[2], rect[3])
+            rect_xywh_offset = 3
+            rect_xywh = rect_2p_to_xywh(rect[0]+rect_xywh_offset, rect[1]+rect_xywh_offset, rect[2]-rect_xywh_offset, rect[3]-rect_xywh_offset)
             sector_filter_dict["xy"] = rect
-            sector_filter_dict[rect_name]=self.ax_radar.add_patch(plt.Rectangle(xy=rect_xywh["xy"], width=rect_xywh["w"], height=rect_xywh["h"], edgecolor=ec, fill=fill, linewidth=2, alpha=alpha))
+            sector_filter_dict[rect_name]=self.ax_radar.add_patch(plt.Rectangle(xy=rect_xywh["xy"], width=rect_xywh["w"], height=rect_xywh["h"], edgecolor=ec, fill=fill, linewidth=linewidth, alpha=alpha))
             sector_filter_dict["index text"] = self.ax_radar.text(rect[0]+self.filter_area_reso/2-6, rect[1]+self.filter_area_reso/2-6, str(len(self.sector_scan_filter_list)), alpha=0.2)
             self.sector_scan_filter_list.append(sector_filter_dict)
     
     def sector_scan_filter_move(self, rect):
-        self._sector_scan_filter_move(rect, ec='red', fc="green", alpha=0.7, fill=False, linewidth=1)
+        self._sector_scan_filter_move(rect, ec='red', fc="green", alpha=0.8, fill=False, linewidth=1)
 
     def sector_scan_filter_move_clear_all(self):
         print(f"self.sector_scan_filter_list={self.sector_scan_filter_list}")
