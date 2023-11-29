@@ -820,7 +820,7 @@ class DynamicPlotThread(Thread):
             # while DynamicPlotThread_state_dict["draw shot"]==False:
             #     time.sleep(0.5)
 
-            time.sleep(0.3)
+            time.sleep(0.4)
 
 
 
