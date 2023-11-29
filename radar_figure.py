@@ -33,7 +33,9 @@ button_state_list = {
     "area1 filter":False, 
     "area2 filter":False, 
     "area3 filter":False, 
-    "fsm":"off", "scan":False
+    "fsm":"off", 
+    "scan":False,
+    "fsm_sm":"off"
     }
 
 button_dict = {}
@@ -68,6 +70,21 @@ data_file_path_list = {
     "config_radar_collect_config_json_path":"",
     "log_once_run_log_folder_path":""
 }
+
+# selected_scan_area_list = [
+#     {
+#         "area_name":"",
+#         "area_rect_device":[],
+#         "area_rect_show":{
+#             "x1":0,
+#             "y1":0,
+#             "x3":0,
+#             "y3":0,
+#         }
+#     }
+# ]
+selected_scan_area_list = []
+filtered_scan_area_list = []
 
 
 
@@ -121,7 +138,20 @@ def set_filter_area_packer(areas, filtertype = 1):
 
 def set_filter_button_callback():
     print("set filter button express once")
-    sendmsglist.append("set filter: 1, -2160, 3240, -1080, 4320, 0, 0, 0, 0, 0, 3240, 1080, 4320, end")
+    # sendmsglist.append("set filter: 1, -2160, 3240, -1080, 4320, 0, 0, 0, 0, 0, 3240, 1080, 4320, end")
+    areas = []
+    if button_state_list["fsm"] == "fss":
+        for item in selected_scan_area_list:
+            areas.append(item["area_rect_device"])
+        set_filter_area_packer(areas, filtertype=1)
+    elif button_state_list["fsm"] == "fsf":
+        for item in filtered_scan_area_list:
+            areas.append(item["area_rect_device"])
+        set_filter_area_packer(areas, filtertype=2)
+    else:
+        print("ignore")
+        pass
+    
 
 def area1_filter_button_callback():
     print("area1 filter button express once")
@@ -181,12 +211,33 @@ def fsm_button_callback():
         button_dict["fsm"]["text"] = "fsm:fs"
 
     elif button_state_list["fsm"] == "fs":
+        button_state_list["fsm"] = "fss"
+        button_dict["fsm"]["text"] = "fsm:fss"
+
+    elif button_state_list["fsm"] == "fss":
+        button_state_list["fsm"] = "fsf"
+        button_dict["fsm"]["text"] = "fsm:fsf"
+    
+    elif button_state_list["fsm"] == "fsf":
         button_state_list["fsm"] = "off"
         button_dict["fsm"]["text"] = "fsm:off"
 
     elif button_state_list["fsm"] == "off":
         button_state_list["fsm"] = "ss"
         button_dict["fsm"]["text"] = "fsm:ss"
+
+def fsm_sm_button_callback():
+    if button_state_list["fsm_sm"] == "sel":
+        button_state_list["fsm_sm"] = "fil"
+        button_dict["fsm_sm"]["text"] = "fsm_sm:fil"
+
+    elif button_state_list["fsm_sm"] == "fil":
+        button_state_list["fsm_sm"] = "off"
+        button_dict["fsm_sm"]["text"] = "fsm_sm:off"
+
+    elif button_state_list["fsm_sm"] == "off":
+        button_state_list["fsm_sm"] = "sel"
+        button_dict["fsm_sm"]["text"] = "fsm_sm:sel"
 
 def cfsm_button_callback():
     msg={}
@@ -343,7 +394,8 @@ class radar_sheet():
         self.width = np.pi*radar_theta/180
         self.colors = plt.cm.viridis(self.radar_valid_dis / 10.)
 
-        self.sector_scan_filter_list = []
+        self.sector_scan_filter_list = {}
+        self.sector_scan_filter_list["mutex_rects"] = []
 
         
 
@@ -392,8 +444,14 @@ class radar_sheet():
 
             self.ax_radar.grid(True,color='black',linestyle=':',linewidth=0.5)
 
+            self.radar_region_sector_color = "cadetblue"
             # arc
-            arc = matplotlib.patches.Arc((0,0), self.radar_valid_dis*2, self.radar_valid_dis*2, angle=0, theta1=self.radar_normal_angel-self.radar_theta/2, theta2=self.radar_normal_angel+self.radar_theta/2, linestyle=':', color = "blue", linewidth = 1.5)
+            arc = matplotlib.patches.Arc((0,0), self.radar_valid_dis*2, \
+                                            self.radar_valid_dis*2, angle=0, \
+                                            theta1=self.radar_normal_angel-self.radar_theta/2, \
+                                            theta2=self.radar_normal_angel+self.radar_theta/2, \
+                                            linestyle=':', \
+                                            color = self.radar_region_sector_color, linewidth = 1.5)
             self.ax_radar.add_patch(arc)
             self.radar_sector_arc = arc
 
@@ -410,7 +468,10 @@ class radar_sheet():
             arc_start_line_x = np.linspace(x1, x2, 100)
             arc_start_line_y = np.linspace(y1, y2, 100)
 
-            self.radar_sector_arc_start_line = self.ax_radar.plot(arc_start_line_x, arc_start_line_y, color = "blue", markersize = 1, linestyle=':')
+            self.radar_sector_arc_start_line = self.ax_radar.plot(arc_start_line_x, \
+                                                                    arc_start_line_y, \
+                                                                    color = self.radar_region_sector_color, \
+                                                                    markersize = 1, linestyle=':')
 
             # end line
             arc_end_line_angel_with_0 = 180-(180-self.radar_theta)/2
@@ -423,7 +484,10 @@ class radar_sheet():
             arc_end_line_x = np.linspace(x1, x2, 100)
             arc_end_line_y = np.linspace(y1, y2, 100)
 
-            self.radar_sector_arc_end_line = self.ax_radar.plot(arc_end_line_x, arc_end_line_y, color = "blue", markersize = 1, linestyle=':')
+            self.radar_sector_arc_end_line = self.ax_radar.plot(arc_end_line_x, \
+                                                                arc_end_line_y, \
+                                                                color = self.radar_region_sector_color, \
+                                                                markersize = 1, linestyle=':')
 
             self.radar_sector_valid = True
             # plt.gca().add_patch(plt.Rectangle(xy=(0, 36), width=72, height=108, edgecolor='green', fill=False, linewidth=2))
@@ -556,29 +620,40 @@ class radar_sheet():
         self.rect_filter_new_area(name, sx, sy, ex, ey, ec, fc, alpha, fill, linewidth)
         pass
 
-    def rect_filter_move_cur_filter(self, name, sx, sy, ex, ey):
-        self._rect_filter_move(name, sx, sy, ex, ey, ec='blue', fc='blue', alpha=0.1, fill=True, linewidth=1)
+    # def test_area_rect_move(self, name, sx, sy, ex, ey, fil_co='blue'):
+    #     self._rect_filter_move(name, sx, sy, ex, ey, ec='blue', fc=fil_co, alpha=0.1, fill=True, linewidth=1)
     
     def rect_filter_move_show_track(self, name, sx, sy, ex, ey):
-        self._rect_filter_move(name, sx, sy, ex, ey, ec='blue', fc='red', alpha=0.2, fill=True, linewidth=1)
+        self._rect_filter_move(name, sx, sy, ex, ey, ec='blue', fc='green', alpha=0.2, fill=True, linewidth=1)
 
-    def _sector_scan_filter_move(self, rect, ec, fc, alpha, fill, linewidth):
-        rect_name = str(rect[0]) + "_" + str(rect[1]) + "_" + str(rect[2]) + "_" + str(rect[3] )
+    def mutex_rect_name(self, name):
+        return "mutex_rect_"+name
+    def _sheet_selected_rect_move(self, type_name, rect, ec, fc, alpha, fill, linewidth, rect_inside_offset=3, text_show=False, text_offset_x="center", text_offset_y="center"):
+        _type_name = type_name
+        if "mutex_rect_" not in type_name:
+            rect_name = type_name + "_" + str(rect[0]) + "_" + str(rect[1]) + "_" + str(rect[2]) + "_" + str(rect[3] )
+        else:
+            rect_name = type_name
+            _type_name = "mutex_rects"
+        # print(f"type_name={type_name}")
+        # print(f"_type_name={_type_name}")
         # print(f"rect_name={rect_name}")
-        # print(f"self.sector_scan_filter_list={self.sector_scan_filter_list}")
         find_name = 0
-        for item in self.sector_scan_filter_list:
+        if _type_name not in self.sector_scan_filter_list:
+            self.sector_scan_filter_list[_type_name] = []
+        for item in self.sector_scan_filter_list[_type_name]:
             if rect_name in item:
                 # print("in item")
                 find_name = 1
                 item[rect_name].remove()
-                item["index text"].set_visible(False)
-                self.sector_scan_filter_list.remove(item)
+                if "index text" in item:
+                    item["index text"].set_visible(False)
+                self.sector_scan_filter_list[_type_name].remove(item)
 
-                for item_1 in self.sector_scan_filter_list:
-                    item_number = self.sector_scan_filter_list.index(item_1)
-                    item_1["index text"].set_text(str(item_number))
-
+                if text_show:
+                    for item_1 in self.sector_scan_filter_list[_type_name]:
+                        item_number = self.sector_scan_filter_list[_type_name].index(item_1)
+                        item_1["index text"].set_text(str(item_number))
                 break
         if find_name == 0:
             # print("find name == 0")
@@ -586,26 +661,40 @@ class radar_sheet():
             
             sector_filter_dict["name"] = rect_name
 
-            rect_xywh_offset = 3
-            rect_xywh = rect_2p_to_xywh(rect[0]+rect_xywh_offset, rect[1]+rect_xywh_offset, rect[2]-rect_xywh_offset, rect[3]-rect_xywh_offset)
+            rect_xywh = rect_2p_to_xywh(rect[0]+rect_inside_offset, rect[1]+rect_inside_offset, rect[2]-rect_inside_offset, rect[3]-rect_inside_offset)
             sector_filter_dict["xy"] = rect
             sector_filter_dict[rect_name]=self.ax_radar.add_patch(plt.Rectangle(xy=rect_xywh["xy"], width=rect_xywh["w"], height=rect_xywh["h"], edgecolor=ec, fill=fill, linewidth=linewidth, alpha=alpha))
-            sector_filter_dict["index text"] = self.ax_radar.text(rect[0]+self.filter_area_reso/2-6, rect[1]+self.filter_area_reso/2-6, str(len(self.sector_scan_filter_list)), alpha=0.2)
-            self.sector_scan_filter_list.append(sector_filter_dict)
+            if text_show:
+                sector_filter_dict["index text"] = self.ax_radar.text(rect[0]+self.filter_area_reso/2-6, rect[1]+self.filter_area_reso/2-6, str(len(self.sector_scan_filter_list[_type_name])), alpha=0.2)
+            self.sector_scan_filter_list[_type_name].append(sector_filter_dict)
+        # print(f"self.sector_scan_filter_list={self.sector_scan_filter_list}")
     
-    def sector_scan_filter_move(self, rect):
-        self._sector_scan_filter_move(rect, ec='red', fc="green", alpha=0.8, fill=False, linewidth=1)
+    def scan_area_order_rect_move(self, type_name, rect):
+        self._sheet_selected_rect_move(type_name, rect, ec='red', fc="green", alpha=0.8, fill=False, linewidth=1, text_show=True)
 
-    def sector_scan_filter_move_clear_all(self):
-        print(f"self.sector_scan_filter_list={self.sector_scan_filter_list}")
-        for item in self.sector_scan_filter_list[:]:
-            print(f"item={item}")
-            rect_name = item["name"]
-            item[rect_name].remove()
-            item["index text"].set_visible(False)
-            self.sector_scan_filter_list.remove(item)
-            print(f"self.sector_scan_filter_list={self.sector_scan_filter_list}")
-        # self.sector_scan_filter_list.clear()
+    def selected_area_rect_move(self, type_name, rect):
+        self._sheet_selected_rect_move(type_name, rect, ec='blue', fc="green", alpha=0.8, fill=False, linewidth=1.5, rect_inside_offset=8)
+
+    def filtered_area_rect_move(self, type_name, rect):
+        self._sheet_selected_rect_move(type_name, rect, ec='darkkhaki', fc="green", alpha=0.8, fill=False, linewidth=1.5, rect_inside_offset=14)
+    
+    def test_area_rect_move(self, type_name, rect=[]):
+        _rect = rect
+        if len(_rect)<4:
+            _rect = [0, 0, 0, 0]
+        self._sheet_selected_rect_move(type_name, _rect, ec='blue', fc="blue", alpha=0.1, fill=True, linewidth=1, rect_inside_offset=0)
+
+    def scan_area_order_rect_move_clear_all(self, type_name):
+        if type_name in self.sector_scan_filter_list:
+            print(f"self.sector_scan_filter_list[{type_name}]={self.sector_scan_filter_list[type_name]}")
+            for item in self.sector_scan_filter_list[type_name][:]:
+                print(f"item={item}")
+                rect_name = item["name"]
+                item[rect_name].remove()
+                item["index text"].set_visible(False)
+                self.sector_scan_filter_list[type_name].remove(item)
+                print(f"self.sector_scan_filter_list[{type_name}]={self.sector_scan_filter_list[type_name]}")
+            # self.sector_scan_filter_list.clear()
         
 
     def show_sector(self):
@@ -1283,20 +1372,21 @@ def query_filter_area(radar_sheet):
                     area_filter_item["area1_ex"] = struct.unpack("h", item[4:6])[0]/10
                     area_filter_item["area1_ey"] = struct.unpack("h", item[6:8])[0]/10
                     area_filter_xy.append(area_filter_item)
-                print(f"area_filter_xy={area_filter_xy}")
+                # print(f"area_filter_xy={area_filter_xy}")
 
                 rect_number = 1
                 for item in area_filter_xy:
                     rect_name = "area"+str(rect_number)
                     rect_number+=1
-                    radar_sheet.rect_filter_move_cur_filter(rect_name, item["area1_sx"], item["area1_sy"], item["area1_ex"], item["area1_ey"])
+                    item_rect = [item["area1_sx"], item["area1_sy"], item["area1_ex"], item["area1_ey"]]
+                    radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name(rect_name), item_rect)
         elif len(query_filter_area_msg_list) > 0:
             msg = query_filter_area_msg_list.pop()
 
             if msg["type"] == "clear":
                 for rect_number in range(1, 4):
                     rect_name = "area"+str(rect_number)
-                    radar_sheet.rect_filter_move_cur_filter(rect_name, 0, 0, 0, 0)
+                    radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name(rect_name))
         else:
             time.sleep(0.2)
 
@@ -1319,7 +1409,7 @@ def filter_area_select(radar_sheet):
         print("ignore")
     else:
         for item in filter_areas_data_json:
-            radar_sheet.sector_scan_filter_move(item)
+            radar_sheet.scan_area_order_rect_move("scan_area_order", item)
 
     while True:
         if len(next_af_msg_list)>0:
@@ -1339,7 +1429,8 @@ def filter_area_select(radar_sheet):
 
                     if button_state_list["fsm"] == "ss":
                         print("ss")
-                        radar_sheet.rect_filter_move_cur_filter("test_scan", msg_posi["x1y1"][0], msg_posi["x1y1"][1], msg_posi["x3y3"][0], msg_posi["x3y3"][1])
+                        rect_xy13 = [msg_posi["x1y1"][0], msg_posi["x1y1"][1], msg_posi["x3y3"][0], msg_posi["x3y3"][1]]
+                        radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name("test_scan"), rect_xy13)
                         scan_areas = []
                         scan_areas.append(sel_area_item)
                         set_filter_area_packer(scan_areas, filtertype=1)
@@ -1356,12 +1447,67 @@ def filter_area_select(radar_sheet):
                             filter_areas_data_json.append(sel_area_item)
                         else:
                             filter_areas_data_json.remove(sel_area_item)
-                        radar_sheet.sector_scan_filter_move(sel_area_item)
+                        radar_sheet.scan_area_order_rect_move("scan_area_order", sel_area_item)
 
                         
                         with open(data_file_path_list["config_filter_areas_data_json_path"], 'w') as f:
                             json.dump(filter_areas_data_json, f, indent=4)
                         pass
+                    elif button_state_list["fsm"] == "fss":
+                        print("fss")
+                        is_new_rect = 1
+                        for item in selected_scan_area_list[:]:
+                            if sel_area_item == item["area_rect_device"]:
+                                is_new_rect = 0
+                                radar_sheet.selected_area_rect_move("selected_area_rect", sel_area_item)
+                                selected_scan_area_list.remove(item)
+
+                        if is_new_rect:
+                            if len(selected_scan_area_list)<3:
+                                selected_scan_area_list_item = {}
+                                selected_scan_area_list_item["area_rect_device"] = sel_area_item
+                                selected_scan_area_list_item["area_rect_show"] = {}
+                                selected_scan_area_list_item["area_rect_show"]["x1"] = msg_posi["x1y1"][0]
+                                selected_scan_area_list_item["area_rect_show"]["y1"] = msg_posi["x1y1"][1]
+                                selected_scan_area_list_item["area_rect_show"]["x2"] = msg_posi["x3y3"][0]
+                                selected_scan_area_list_item["area_rect_show"]["y2"] = msg_posi["x3y3"][1]
+                                selected_scan_area_list_item["area_name"] = \
+                                str(selected_scan_area_list_item["area_rect_show"]["x1"])+"_"+\
+                                str(selected_scan_area_list_item["area_rect_show"]["y1"])+"_"+\
+                                str(selected_scan_area_list_item["area_rect_show"]["x2"])+"_"+\
+                                str(selected_scan_area_list_item["area_rect_show"]["y2"])
+                                selected_scan_area_list.append(selected_scan_area_list_item)
+
+                                radar_sheet.selected_area_rect_move("selected_area_rect", sel_area_item)
+
+                    elif button_state_list["fsm"] == "fsf":
+                        print("fsf")
+                        is_new_rect = 1
+                        for item in filtered_scan_area_list[:]:
+                            if sel_area_item == item["area_rect_device"]:
+                                is_new_rect = 0
+                                radar_sheet.filtered_area_rect_move("filtered_area_rect", sel_area_item)
+                                filtered_scan_area_list.remove(item)
+                        
+                        if is_new_rect:
+                            if len(filtered_scan_area_list)<3:
+                                filtered_scan_area_list_item = {}
+                                filtered_scan_area_list_item["area_rect_device"] = sel_area_item
+                                filtered_scan_area_list_item["area_rect_show"] = {}
+                                filtered_scan_area_list_item["area_rect_show"]["x1"] = msg_posi["x1y1"][0]
+                                filtered_scan_area_list_item["area_rect_show"]["y1"] = msg_posi["x1y1"][1]
+                                filtered_scan_area_list_item["area_rect_show"]["x2"] = msg_posi["x3y3"][0]
+                                filtered_scan_area_list_item["area_rect_show"]["y2"] = msg_posi["x3y3"][1]
+                                filtered_scan_area_list_item["area_name"] = \
+                                str(filtered_scan_area_list_item["area_rect_show"]["x1"])+"_"+\
+                                str(filtered_scan_area_list_item["area_rect_show"]["y1"])+"_"+\
+                                str(filtered_scan_area_list_item["area_rect_show"]["x2"])+"_"+\
+                                str(filtered_scan_area_list_item["area_rect_show"]["y2"])
+
+                                filtered_scan_area_list.append(filtered_scan_area_list_item)
+
+                                radar_sheet.filtered_area_rect_move("filtered_area_rect", sel_area_item)
+
                     elif button_state_list["fsm"] == "off":
                         # print("off")
                         pass
@@ -1371,13 +1517,14 @@ def filter_area_select(radar_sheet):
                     filter_areas_data_json = []
                     with open(data_file_path_list["config_filter_areas_data_json_path"], 'w') as f:
                         json.dump(filter_areas_data_json, f, indent=4)
-                    radar_sheet.sector_scan_filter_move_clear_all()
+                    radar_sheet.scan_area_order_rect_move_clear_all("scan_area_order")
                     pass
 
                 elif msg["type"] == "clear":
-                    radar_sheet.rect_filter_move_cur_filter("test_scan", 0, 0, 0, 0)
+                    radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name("test_scan"))
                     # scan_areas = []
                     # set_filter_area_packer(scan_areas, filtertype=1)
+                    pass
         else:
             time.sleep(0.2)
 
@@ -1463,10 +1610,14 @@ def filter_scan_func(radar_sheet, statistics):
                         while button_state_list["scan"]==False:
                             print("scan pause")
                             time.sleep(1)
-                        radar_sheet.rect_filter_move_cur_filter("test_scan", item[0], item[1], item[2], item[3])
                         scan_areas = []
                         scan_areas.append(item)
+                        # radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name("test_scan"))
+                        # sendmsglist.append("rfs")
+                        # time.sleep(3)
+                        radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name("test_scan"), item)
                         set_filter_area_packer(scan_areas, filtertype=1)
+                        time.sleep(1)
                         # ------------------------------
                         scan_data_item = {}
                         localtime = time.localtime()
@@ -1548,7 +1699,8 @@ def filter_scan_func(radar_sheet, statistics):
                             json.dump(statistics, f, indent=4)
 
                     if exit_scan_hide_full == True:
-                        radar_sheet.rect_filter_move_cur_filter("test_scan", 0, 0, 0, 0)
+                        radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name("test_scan"))
+                        pass
 
                     cover_count+=1
                     if once_total_shots < total_shots_min:
@@ -1582,7 +1734,7 @@ def filter_scan_func(radar_sheet, statistics):
                         item.del_shot()
                     show_shots_mark_list.clear()
 
-                    radar_sheet.rect_filter_move_cur_filter("test_scan", 0, 0, 0, 0)
+                    radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name("test_scan"))
 
                     try:
                         if msg["scan_type"]=="period":
@@ -1810,6 +1962,7 @@ if __name__ == '__main__':
     tk_button(radar_tk_window, name = "scan trace+", text="scan trace+", width=len("scan trace+"), height=1, b_x = 1490, b_y = 0, callback=scan_track_plus_button_callback)
     tk_button(radar_tk_window, name = "pause scan", text="pause scan", width=len("pause scan"), height=1, b_x = 1580, b_y = 0, callback=pause_scan_button_callback)
     tk_button(radar_tk_window, name = "exit scan", text="exit scan", width=len("exit scan"), height=1, b_x = 1660, b_y = 0, callback=exit_scan_button_callback)
+    tk_button(radar_tk_window, name = "fsm_sm", text="fsm_sm:off", width=len("fsm_sm:off"), height=1, b_x = 1740, b_y = 0, callback=fsm_sm_button_callback)
     tk.mainloop()
 
     os._exit(0)
