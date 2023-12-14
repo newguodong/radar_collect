@@ -28,14 +28,12 @@ import colorama
 
 button_state_list = {
     "exit":False, 
-    "json record":False, 
-    "scan mode":"multi", 
-    "area1 filter":False, 
-    "area2 filter":False, 
-    "area3 filter":False, 
+    "json record":False,  
     "fsm":"off", 
     "scan":False,
-    "fsm_sm":"off"
+    "fsm_sm":"off",
+    "detect_switch":False,
+    "detect_mode":"m1"
     }
 
 button_dict = {}
@@ -102,117 +100,35 @@ def json_record_button_callback():
         button_state_list["json record"] = True
         button_dict["json record switch"]["text"] = "json record on"
 
-def scan_mode_button_callback():
-    print("scan mode button express once")
-    if button_state_list["scan mode"] == "multi":
-        button_state_list["scan mode"] = "single"
-        button_dict["scan mode"]["text"] = "scan mode single"
-        sendmsglist.append("trace single")
-    else:
-        button_state_list["scan mode"] = "multi"
-        button_dict["scan mode"]["text"] = "scan mode multi"
-        sendmsglist.append("trace multi")
-
-def filter_query_button_callback():
-    print("filter query button express once")
-    sendmsglist.append("query filter")
-
-def set_filter_area_packer(areas, filtertype = 1):
-    cmd_str = "set filter: "
-    cmd_str += str(filtertype)+", "
-
-    areas_pad_item = [0, 0, 0, 0]
-    while len(areas)<3:
-        areas.append(areas_pad_item)
-    print(f"areas={areas}")
-
-    for item in areas:
-        for xy in item:
-            xy = xy*10
-            cmd_str += str(xy)
-            cmd_str += ", "
-    cmd_str += "end"
-
-    # print(f"cmd_str={cmd_str}")
-    sendmsglist.append(cmd_str)
+def detect_switch_button_callback():
+    print("detect_switch_button_callback press once")
+    if button_state_list["detect_switch"] == True:
+        button_state_list["detect_switch"] = False
+        button_dict["detect switch"]["text"] = "detect off"
+        sendmsglist.append("stop detect")
         
-
-def set_filter_button_callback():
-    print("set filter button express once")
-    # sendmsglist.append("set filter: 1, -2160, 3240, -1080, 4320, 0, 0, 0, 0, 0, 3240, 1080, 4320, end")
-    areas = []
-    if button_state_list["fsm"] == "fss":
-        for item in selected_scan_area_list:
-            areas.append(item["area_rect_device"])
-        set_filter_area_packer(areas, filtertype=1)
-        msg={}
-        msg["type"] = "clear ss"
-        next_af_msg_list.append(msg)
-    elif button_state_list["fsm"] == "fsf":
-        for item in filtered_scan_area_list:
-            areas.append(item["area_rect_device"])
-        set_filter_area_packer(areas, filtertype=2)
-        msg={}
-        msg["type"] = "clear ss"
-        next_af_msg_list.append(msg)
     else:
-        print("ignore")
-        pass
-    
+        button_state_list["detect_switch"] = True
+        button_dict["detect switch"]["text"] = "detect on"
+        if button_state_list["detect_mode"] == "m1":
+            sendmsglist.append("start detect1")
+        elif button_state_list["detect_mode"] == "m2":
+            sendmsglist.append("start detect2")
 
-def area1_filter_button_callback():
-    print("area1 filter button express once")
-    if button_state_list["area1 filter"] == True:
-        button_state_list["area1 filter"] = False
-        button_dict["area1 filter"]["text"] = "area1 filter off"
+def detect_mode_button_callback():
+    print("detect_mode_button_callback press once")
+    if button_state_list["detect_mode"] == "m1":
+        button_state_list["detect_mode"] = "m2"
+        button_dict["detect mode"]["text"] = "detect m2"
+        sendmsglist.append("start detect2")
+        button_state_list["detect_switch"] = True
+        button_dict["detect switch"]["text"] = "detect on"
     else:
-        button_state_list["area1 filter"] = True
-        button_dict["area1 filter"]["text"] = "area1 filter on"
-
-def area2_filter_button_callback():
-    print("area2 filter button express once")
-    if button_state_list["area2 filter"] == True:
-        button_state_list["area2 filter"] = False
-        button_dict["area2 filter"]["text"] = "area2 filter off"
-    else:
-        button_state_list["area2 filter"] = True
-        button_dict["area2 filter"]["text"] = "area2 filter on"
-
-def area3_filter_button_callback():
-    print("area3 filter button express once")
-    if button_state_list["area3 filter"] == True:
-        button_state_list["area3 filter"] = False
-        button_dict["area3 filter"]["text"] = "area3 filter off"
-    else:
-        button_state_list["area3 filter"] = True
-        button_dict["area3 filter"]["text"] = "area3 filter on"
-
-def next_af_button_callback():
-    msg={}
-    msg["type"] = "next"
-    next_af_msg_list.append(msg)
-
-def prev_af_button_callback():
-    msg={}
-    msg["type"] = "prev"
-    next_af_msg_list.append(msg)
-
-def radar_rfs_button_callback():
-    sendmsglist.append("rfs")
-    next_af_msg_list_msg={}
-    next_af_msg_list_msg["type"] = "clear ss"
-    next_af_msg_list.append(next_af_msg_list_msg)
-
-    query_filter_area_msg_list_msg = {}
-    query_filter_area_msg_list_msg["type"] = "clear"
-    query_filter_area_msg_list.append(query_filter_area_msg_list_msg)
-
-def radar_clear_query_button_callback():
-    msg={}
-    msg["type"] = "clear"
-    # next_af_msg_list.append(msg)
-
-    query_filter_area_msg_list.append(msg)
+        button_state_list["detect_mode"] = "m1"
+        button_dict["detect mode"]["text"] = "detect m1"
+        sendmsglist.append("start detect1")
+        button_state_list["detect_switch"] = True
+        button_dict["detect switch"]["text"] = "detect on"
 
 def fsm_button_callback():
     if button_state_list["fsm"] == "ss":
@@ -984,8 +900,8 @@ def sendMsg(client_socket):
 
 # radar_head_mark = b'\xAA\xFF\x03\x00'
 # radar_tail_mark = b'\x55\xCC'
-radar_head_mark = bytes([0xaa, 0xff, 0x03, 0x00])
-radar_tail_mark = bytes([0x55, 0xcc])
+radar_head_mark = bytes([0x4d, 0x62])
+radar_tail_mark = bytes([0x4a])
 
 radar_cmd_head_mark = bytes([0xfd, 0xfc, 0xfb, 0xfa])
 radar_cmd_tail_mark = bytes([4, 3, 2, 1])
@@ -1060,64 +976,15 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                             pass
                         # print(f"read_posi={read_posi}")
                         read_posi += radar_data_frame_tail-radar_data_frame_head
-                        if len(radar_data_frame)==30:
-                            # print(radar_data_frame)
-                            # myradar_data = open('radardata.bin', 'ab')
-                            # myradar_data.write(bytes(radar_data_frame))
-                            # myradar_data.close()
+                        # print(f"radar_data_frame={radar_data_frame}")
 
-                            # print("radar data recved")
-
-                            radar_data_frame_dict = {}
-                            radar_data_frame_dict["radar_model"] = "ld2450"
-                            radar_data_frame_dict["data"] = list(radar_data_frame)
-                            radar_data_list.append(radar_data_frame_dict)
+                        radar_data_frame_dict = {}
+                        radar_data_frame_dict["radar_model"] = "ld6001"
+                        radar_data_frame_dict["data"] = list(radar_data_frame)
+                        radar_data_list.append(radar_data_frame_dict)
 
 
-                            read_len += len(radar_data_frame)
-                            
-                        else:
-                            # print("radar_data_frame len error")
-                            # print(f"len(radar_data_frame)={len(radar_data_frame)}")
-                            read_posi = len(rcv_buf)
-                            # while True:
-                            #     time.sleep(1)
-                    elif radar_head_posi == -1 and radar_tail_posi == -1:
-                        radar_cmd_head_posi = rcv_buf[read_posi:].find(radar_cmd_head_mark)
-                        radar_cmd_tail_posi = rcv_buf[read_posi+radar_cmd_head_posi:].find(radar_cmd_tail_mark)
-
-                        if radar_cmd_head_posi != -1 and radar_cmd_tail_posi != -1:
-                            radar_cmd_frame_head = radar_cmd_head_posi
-                            radar_cmd_frame_tail = radar_cmd_tail_posi+len(radar_cmd_tail_mark)
-                            
-                            # print(f"read_posi={read_posi}")
-                            try:
-                                radar_cmd_frame = struct.unpack(str(radar_cmd_frame_tail-radar_cmd_frame_head)+"B", rcv_buf[read_posi+radar_cmd_frame_head:read_posi+radar_cmd_frame_tail])
-                            except:
-                                print("cmd unpack error")
-                                read_posi = len(rcv_buf)
-                                print("Unexpected error:", sys.exc_info()[0])
-                                pass
-                            # print(f"read_posi={read_posi}")
-                            read_posi += radar_cmd_frame_tail-radar_cmd_frame_head
-
-                            # print(f"rcv cmd:{radar_cmd_frame}")
-
-                            #---------------------------------------
-                            radar_msg_list.append(list(radar_cmd_frame))
-                            #---------------------------------------
-
-                            read_len += len(radar_cmd_frame)
-
-                        elif radar_cmd_head_posi == -1:
-                            # print("radar_cmd_head_posi error")
-                            read_posi = len(rcv_buf)
-                            break
-                        elif radar_cmd_frame_tail == -1:
-                            # print("cmd continue recv...\n")
-                            break
-                        else:
-                            print("cmd other\n")
+                        read_len += len(radar_data_frame)
 
                     elif radar_head_posi == -1:
                         # print("radar_head_posi error")
@@ -1128,9 +995,6 @@ def readMsg(client_socket, access_date, access_time, radar_data_list):
                         break
                     else:
                         print("other\n")
-                last_read_posi = read_posi
-
-                
 
             except UnicodeDecodeError:
                 # mysocketlog.write("recv_data is not 'utf-8'\n")
@@ -1261,49 +1125,62 @@ def Polar_to_Rectangular(r, theta):  # 极坐标转直角坐标，输入的thata
     y = r * np.sin(math.radians(theta))
     return round(x, 2), round(y, 2)
 
-def radar_computer_ld2450(data_in):
+#input: 补码值(16进制或者十进制具可)
+#output: 原码值(十进制)
+#支持两个字节输入，若支持更多字节, 0x800后补00到字节长度, 0xFFFF后补FF到字节长度
+def get_char_hex_data_abs( hex_data ):
+	if (hex_data & 0x80 == 0x80):
+		return -((hex_data-1) ^ 0xFF)
+	else:
+		return hex_data
+
+
+def radar_computer_ld6001(data_in):
     objects = [
-        {"radar_model":"ld2450", "id":1, "rect_x":100, "rect_y":200, "speed":40, "dis_reso":75},
-        {"radar_model":"ld2450", "id":2, "rect_x":300, "rect_y":400, "speed":50, "dis_reso":75}
+        {"radar_model":"ld6001", "id":1, "rect_x":10, "rect_y":10, "speed":40, "dis_reso":75},
+        {"radar_model":"ld6001", "id":2, "rect_x":10, "rect_y":20, "speed":50, "dis_reso":75}
     ]
 
     radar_objects_data = []
 
-    radar_objects_data.append(data_in["data"][4:4+8])
-    radar_objects_data.append(data_in["data"][4+8:4+8+8])
-    radar_objects_data.append(data_in["data"][4+8+8:4+8+8+8])
+    data_in_data = data_in["data"]
+
+    objects_number = data_in_data[5]
 
     radar_objects = []
 
-    for radar_object in radar_objects_data:
-        if sum(radar_object[0:4]) > 0:
-            x_side = 0
-            radar_object_dict = {}
-            radar_object_dict["radar_model"] = "ld2450"
-            radar_object_dict["id"] = radar_objects_data.index(radar_object)
-            radar_object_dict["rect_x"] = radar_object[0]+radar_object[1]*256
-            polar_theta_rect_x = 0
-            if radar_object[1]&int('10000000', 2):
-                radar_object_dict["rect_x"] -= 0x8000
-                x_side = 1
-                polar_theta_rect_x = radar_object_dict["rect_x"]
-            else:
-                polar_theta_rect_x = radar_object_dict["rect_x"]
-                radar_object_dict["rect_x"] = 0-radar_object_dict["rect_x"]
-            
-            radar_object_dict["rect_y"] = radar_object[2]+radar_object[3]*256-2**15
-            radar_object_dict["speed"] = radar_object[4]+radar_object[5]*256
-            radar_object_dict["dis_reso"] = radar_object[6]+radar_object[7]*256
-            radar_object_dict["rect_x"] = radar_object_dict["rect_x"]/10
-            polar_theta_rect_x = polar_theta_rect_x/10
-            radar_object_dict["rect_y"] = radar_object_dict["rect_y"]/10
-            polar_posi = Rectangular_to_Polar(polar_theta_rect_x, radar_object_dict["rect_y"])
-            radar_object_dict["polar_r"]  = polar_posi[0]
-            radar_object_dict["polar_theta"]  = polar_posi[1]
-            if x_side == 0:
-                radar_object_dict["polar_theta"] = 180-radar_object_dict["polar_theta"]
-            radar_objects.append(radar_object_dict)
-    # print(f"radar_objects={radar_objects}")
+    print(f"objects_number={objects_number}")
+
+    if len(data_in_data)>=objects_number*8+14:
+
+        if objects_number > 0:
+            for item in range(0, objects_number):
+                radar_objects_data.append(data_in_data[12+item*8:12+8+item*8])
+
+            for radar_object in radar_objects_data:
+                radar_object_dict = {}
+                radar_object_dict["radar_model"] = "ld6001"
+                radar_object_dict["id"] = radar_object[0]
+                radar_object_dict["distance"]  = radar_object[1]
+                radar_object_dict["pitch_angel"]  = radar_object[2]
+                radar_object_dict["horizontal_angle"]  = radar_object[3]
+                radar_object_dict["rect_x"] = radar_object[6]
+                # if radar_object_dict["rect_x"]&int('10000000', 2):
+                #     radar_object_dict["rect_x"] = ~(radar_object_dict["rect_x"]-1)
+                radar_object_dict["rect_x"] = get_char_hex_data_abs(radar_object_dict["rect_x"])
+                radar_object_dict["rect_x"] = radar_object_dict["rect_x"]*10
+                radar_object_dict["rect_y"] = radar_object[7]*10
+                radar_object_dict["speed"] = 0
+                radar_object_dict["dis_reso"] = 10
+                polar_posi = Rectangular_to_Polar(radar_object_dict["rect_x"], radar_object_dict["rect_y"])
+                radar_object_dict["polar_r"]  = polar_posi[0]
+                radar_object_dict["polar_theta"]  = polar_posi[1]
+                
+                
+                radar_objects.append(radar_object_dict)
+            print(f"radar_objects={radar_objects}")
+        else:
+            pass
     return radar_objects
 
 
@@ -1330,7 +1207,7 @@ def radar_data_analyse(data_in, data_out):
 
                     objects_data_item = {}
                     for idata_in in data_in:
-                        radar_data_list = radar_computer_ld2450(idata_in)
+                        radar_data_list = radar_computer_ld6001(idata_in)
                         # print(f"radar_data_list={radar_data_list}")
                         localtime = time.localtime()
                         localtimestr = time.strftime("%Y-%m-%d %H:%M:%S", localtime)
@@ -1345,9 +1222,10 @@ def radar_data_analyse(data_in, data_out):
 
                 data_in_1 = data_in.pop()
                 if len(data_in_1["data"]) > 0:
-                    # print(f"data_in_1={data_in_1['data']}")
+                    print(f"data_in_1={data_in_1['data']}")
                     data_in.clear()
-                    radar_data_list = radar_computer_ld2450(data_in_1)
+                    radar_data_list = radar_computer_ld6001(data_in_1)
+                    # print(f"radar_data_list={radar_data_list}")
                     for i_data in radar_data_list:
                         data_out.append(i_data)
 
@@ -1470,7 +1348,6 @@ def filter_area_select(radar_sheet):
                             if radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name("test_scan"), rect_xy13) == True:
                                 radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name("test_scan"), rect_xy13)
                             scan_areas = []
-                            set_filter_area_packer(scan_areas, filtertype=0)
                         else:
                             if len(test_ss_area_list)>0:
                                     test_ss_area_list.clear()
@@ -1480,7 +1357,6 @@ def filter_area_select(radar_sheet):
                                     test_ss_area_list.append(rect_xy13)
                                     scan_areas = []
                                     scan_areas.append(sel_area_item)
-                                    set_filter_area_packer(scan_areas, filtertype=1)
                             
                             else:
                                 if radar_sheet.test_area_rect_move(radar_sheet.mutex_rect_name("test_scan"), rect_xy13) == False:
@@ -1488,7 +1364,6 @@ def filter_area_select(radar_sheet):
                                 test_ss_area_list.append(rect_xy13)
                                 scan_areas = []
                                 scan_areas.append(sel_area_item)
-                                set_filter_area_packer(scan_areas, filtertype=1)
                     elif button_state_list["fsm"] == "fs":
                         print("fs")
                         filter_areas_data_json = []
@@ -1674,7 +1549,7 @@ def filter_scan_func(radar_sheet, statistics):
                         test_ss_area_list.clear()
                         test_ss_area_list.append(item)
                         
-                        set_filter_area_packer(scan_areas, filtertype=1)
+                        # set_filter_area_packer(scan_areas, filtertype=1)
                         time.sleep(1)
                         # ------------------------------
                         scan_data_item = {}
@@ -1940,7 +1815,7 @@ if __name__ == '__main__':
     plt.title('24GHz radar collect')
 
     radar_original_data = [
-        {"radar_model":"ld2450", "data":[]}
+        {"radar_model":"ld6001", "data":[]}
     ]
 
     t = Thread(target = tcp_creator, args = (radar_original_data, ))
@@ -1984,12 +1859,12 @@ if __name__ == '__main__':
     t.start()
 
     # objects = [
-    #     {"radar_model":"ld2450", "id":1, "rect_x":100, "rect_y":200, "speed":40, "dis_reso":75},
-    #     {"radar_model":"ld2450", "id":2, "rect_x":300, "rect_y":400, "speed":50, "dis_reso":75}
+    #     {"radar_model":"ld6001", "id":1, "rect_x":100, "rect_y":200, "speed":40, "dis_reso":75},
+    #     {"radar_model":"ld6001", "id":2, "rect_x":300, "rect_y":400, "speed":50, "dis_reso":75}
     # ]
     # objects = [
-    #     {"radar_model":"ld2450", "id":1, "polar_r":100, "polar_theta":200, "speed":40, "dis_reso":75},
-    #     {"radar_model":"ld2450", "id":2, "polar_r":300, "polar_theta":400, "speed":50, "dis_reso":75}
+    #     {"radar_model":"ld6001", "id":1, "polar_r":100, "polar_theta":200, "speed":40, "dis_reso":75},
+    #     {"radar_model":"ld6001", "id":2, "polar_r":300, "polar_theta":400, "speed":50, "dis_reso":75}
     # ]
     objects = []
 
@@ -2001,18 +1876,11 @@ if __name__ == '__main__':
     dynamic_plot.start()
 
     tk_button(radar_tk_window, name = "exit", text="exit", width=len("exit"), height=1, b_x = 0, b_y = 0, callback=exit_button_callback)
-    tk_button(radar_tk_window, name = "scan mode", text="scan mode multi", width=len("scan mode multi"), height=1, b_x = 50, b_y = 0, callback=scan_mode_button_callback)
 
     tk_button(radar_tk_window, name = "json record switch", text="json record off", width=len("json record off"), height=1, b_x = 180, b_y = 0, callback=json_record_button_callback)
-    
-    tk_button(radar_tk_window, name = "filter_query", text="query filter", width=len("query filter"), height=1, b_x = 310, b_y = 0, callback=filter_query_button_callback)
+    tk_button(radar_tk_window, name = "detect switch", text="detect off", width=len("detect off"), height=1, b_x = 350, b_y = 0, callback=detect_switch_button_callback)
+    tk_button(radar_tk_window, name = "detect mode", text="detect m1", width=len("detect m1"), height=1, b_x = 450, b_y = 0, callback=detect_mode_button_callback)
 
-    tk_button(radar_tk_window, name = "set_filter", text="set filter", width=len("set filter"), height=1, b_x = 410, b_y = 0, callback=set_filter_button_callback)
-    tk_button(radar_tk_window, name = "area1 filter", text="area1 filter off", width=len("area1 filter off"), height=1, b_x = 540, b_y = 0, callback=area1_filter_button_callback)
-    tk_button(radar_tk_window, name = "area2 filter", text="area2 filter off", width=len("area2 filter off"), height=1, b_x = 670, b_y = 0, callback=area2_filter_button_callback)
-    tk_button(radar_tk_window, name = "area3 filter", text="area3 filter off", width=len("area3 filter off"), height=1, b_x = 800, b_y = 0, callback=area3_filter_button_callback)
-    tk_button(radar_tk_window, name = "radar rfs", text="radar rfs", width=len("radar rfs"), height=1, b_x = 930, b_y = 0, callback=radar_rfs_button_callback)
-    tk_button(radar_tk_window, name = "query clear", text="query clear", width=len("query clear"), height=1, b_x = 1100, b_y = 0, callback=radar_clear_query_button_callback)
     tk_button(radar_tk_window, name = "fsm", text="fsm:off", width=len("fsm:off"), height=1, b_x = 1200, b_y = 0, callback=fsm_button_callback)
     tk_button(radar_tk_window, name = "cfsm", text="dfsm", width=len("cfsm"), height=1, b_x = 1280, b_y = 0, callback=cfsm_button_callback)
     tk_button(radar_tk_window, name = "show trace", text="show trace", width=len("show trace"), height=1, b_x = 1320, b_y = 0, callback=show_track_button_callback)
